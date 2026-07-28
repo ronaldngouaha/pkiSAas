@@ -12,7 +12,7 @@ services:
     volumes:
       - mssql-data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "echo 'SELECT 1' | /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ${MSSQL_SA_PASSWORD}"]
+      test: ["CMD-SHELL", "echo 'SELECT 1' | /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P ${MSSQL_SA_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -62,7 +62,7 @@ services:
       dockerfile: src/Tenants.Identity/Dockerfile
     container_name: tenants_identity
     environment:
-      - ConnectionStrings__Default=Server=mssql,1433;Database=TenantsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - ConnectionStrings__Default=Server=mssql,1433;Database=TenantsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};
       - VAULT_ADDR=http://vault:8200
       - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
     ports:
@@ -71,6 +71,12 @@ services:
       - mssql-init
       - vault
       - rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
     networks:
       - pki-net
 
