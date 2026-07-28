@@ -63,7 +63,15 @@ services:
     container_name: tenants_identity
     environment:
       - ConnectionStrings__Default=Server=mssql,1433;Database=TenantsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};
-      - VAULT_ADDR=http://vault:8200
+      - VAULT_ADDR=${VAULT_ADDR}
+      - VAULT_TOKEN=${VAULT_TOKEN}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_ACCESS_MINUTES=${JWT_ACCESS_MINUTES}
+      - JWT_REFRESH_DAYS=${JWT_REFRESH_DAYS}
+      - SEED_SUPERADMIN=${SEED_SUPERADMIN}
+      - SEED_SUPERADMIN_EMAIL=${SEED_SUPERADMIN_EMAIL}
+      - SEED_SUPERADMIN_PASSWORD=${SEED_SUPERADMIN_PASSWORD}
       - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
     ports:
       - "5101:80" # mapping local -> container
