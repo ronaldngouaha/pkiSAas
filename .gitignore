@@ -1,0 +1,19 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# User files
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Environment files
+.env
+.env.*
+!*.env.example
+
+docker/.env
+
+# Logs
+*.log

@@ -1,0 +1,6 @@
+@Admin.Pki_HostAddress = http://localhost:5147
+
+GET {{Admin.Pki_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  tenants.identity:
+    volumes:
+      - ./src/Tenants.Identity:/src/Tenants.Identity
+  pki.core:
+    volumes:
+      - ./src/Pki.Core:/src/Pki.Core
+  domain.validation:
+    volumes:
+      - ./src/Domain.Validation:/src/Domain.Validation
+  certificates.lifecycle:
+    volumes:
+      - ./src/Certificates.Lifecycle:/src/Certificates.Lifecycle
+  crl.publish:
+    volumes:
+      - ./src/Crl.Publish:/src/Crl.Publish
+  admin.pki:
+    volumes:
+      - ./src/Admin.Pki:/src/Admin.Pki
+  audit.events:
+    volumes:
+      - ./src/Audit.Events:/src/Audit.Events

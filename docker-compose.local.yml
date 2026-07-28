@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: pki_local_mssql
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1' | /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ${MSSQL_SA_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - pki-net
+
+  mssql-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: pki_local_mssql_init
+    depends_on:
+      mssql:
+        condition: service_healthy
+    volumes:
+      - ./docker/init-scripts:/scripts:ro
+    entrypoint: >
+      /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P ${MSSQL_SA_PASSWORD} -i /scripts/create-dbs.sql"
+    networks:
+      - pki-net
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: pki_local_vault
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_DEV_ROOT_TOKEN_ID}
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    command: "server -dev -dev-root-token-id=${VAULT_DEV_ROOT_TOKEN_ID}"
+    volumes:
+      - vault-data:/vault/file
+    networks:
+      - pki-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: pki_local_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - pki-net
+
+  tenants.identity:
+    build:
+      context: .
+      dockerfile: src/Tenants.Identity/Dockerfile
+    container_name: tenants_identity
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=TenantsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5101:80" # mapping local -> container
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  pki.core:
+    build:
+      context: .
+      dockerfile: src/Pki.Core/Dockerfile
+    container_name: pki_core
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=PkiCoreDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5102:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  domain.validation:
+    build:
+      context: .
+      dockerfile: src/Domain.Validation/Dockerfile
+    container_name: domain_validation
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=DomainDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5103:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  certificates.lifecycle:
+    build:
+      context: .
+      dockerfile: src/Certificates.Lifecycle/Dockerfile
+    container_name: certificates_lifecycle
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=CertificatesDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5104:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  crl.publish:
+    build:
+      context: .
+      dockerfile: src/Crl.Publish/Dockerfile
+    container_name: crl_publish
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=CrlDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5105:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  admin.pki:
+    build:
+      context: .
+      dockerfile: src/Admin.Pki/Dockerfile
+    container_name: admin_pki
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=AdminDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5106:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  audit.events:
+    build:
+      context: .
+      dockerfile: src/Audit.Events/Dockerfile
+    container_name: audit_events
+    environment:
+      - ConnectionStrings__Default=Server=mssql,1433;Database=AuditDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - VAULT_ADDR=http://vault:8200
+      - RABBITMQ__URL=amqp://guest:guest@rabbitmq:5672/
+    ports:
+      - "5107:80"
+    depends_on:
+      - mssql-init
+      - vault
+      - rabbitmq
+    networks:
+      - pki-net
+
+  adminer:
+    image: adminer
+    container_name: pki_local_adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - pki-net
+
+volumes:
+  mssql-data:
+  vault-data:
+
+networks:
+  pki-net:
+    driver: bridge
+
+# Run locally:
+# docker compose --env-file docker/.env -f docker-compose.local.yml up --build

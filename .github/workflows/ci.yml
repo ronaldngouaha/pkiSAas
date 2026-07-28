@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore PkiSaas.sln
+
+      - name: Build
+        run: dotnet build PkiSaas.sln --configuration Release --no-restore
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        testProject:
+          - tests/Tenants.Identity.Tests/Tenants.Identity.Tests.csproj
+          - tests/Pki.Core.Tests/Pki.Core.Tests.csproj
+          - tests/Domain.Validation.Tests/Domain.Validation.Tests.csproj
+          - tests/Certificates.Lifecycle.Tests/Certificates.Lifecycle.Tests.csproj
+          - tests/Crl.Publish.Tests/Crl.Publish.Tests.csproj
+          - tests/Admin.Pki.Tests/Admin.Pki.Tests.csproj
+          - tests/Audit.Events.Tests/Audit.Events.Tests.csproj
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore PkiSaas.sln
+
+      - name: Test
+        run: dotnet test ${{ matrix.testProject }} --configuration Release --no-restore --verbosity normal

@@ -1,0 +1,6 @@
+@Audit.Events_HostAddress = http://localhost:5064
+
+GET {{Audit.Events_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
