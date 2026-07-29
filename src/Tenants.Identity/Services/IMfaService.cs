@@ -1,13 +1,16 @@
 using System;
 using System.Threading.Tasks;
+using Acme.Pki.Tenants.Identity.DTOs.Mfa;
 
 namespace Acme.Pki.Tenants.Identity.Services
 {
     public interface IMfaService
     {
-        Task<string> GenerateChallengeAsync(Guid userId);
-        Task<bool> VerifyCodeAsync(Guid userId, string code);
-        Task EnableAsync(Guid userId);
-        Task DisableAsync(Guid userId);
+        Task<MfaSetupDto> BeginTotpSetupAsync(Guid userId);
+        Task<bool> VerifyTotpAsync(Guid userId, string code);
+        Task<string[]> GenerateRecoveryCodesAsync(Guid userId, int count = 10);
+        Task<bool> ConsumeRecoveryCodeAsync(Guid userId, string code);
+        Task DisableTotpAsync(Guid userId);
+        Task<bool> IsMfaEnabledAsync(Guid userId);
     }
 }

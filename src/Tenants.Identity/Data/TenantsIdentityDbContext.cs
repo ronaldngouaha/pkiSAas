@@ -11,6 +11,8 @@ namespace Acme.Pki.Tenants.Identity.Data
         public DbSet<TenantDomain> TenantDomains { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<UserMfaSecret> UserMfaSecrets { get; set; }
+        public DbSet<RecoveryCode> RecoveryCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +53,23 @@ namespace Acme.Pki.Tenants.Identity.Data
             {
                 b.HasKey(r => r.Id);
                 b.HasIndex(r => r.UserId);
+            });
+
+            modelBuilder.Entity<UserMfaSecret>(b =>
+            {
+                b.HasKey(s => s.Id);
+                b.Property(s => s.EncryptedSecret).IsRequired();
+                b.Property(s => s.KeyId).IsRequired().HasMaxLength(200);
+                b.HasIndex(s => new { s.UserId, s.IsActive });
+                b.HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RecoveryCode>(b =>
+            {
+                b.HasKey(r => r.Id);
+                b.Property(r => r.CodeHash).IsRequired().HasMaxLength(256);
+                b.HasIndex(r => new { r.UserId, r.Used });
+                b.HasOne<User>().WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
             });
 
             base.OnModelCreating(modelBuilder);
