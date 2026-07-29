@@ -54,9 +54,19 @@ namespace Acme.Pki.Tenants.Identity.Tests
             {
                 TenantId = Guid.NewGuid(),
                 Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
                 DisplayName = "User",
+                Username = "user@test.local",
                 Role = TenantRole.User,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("P@ssw0rd!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
                 IsActive = true
             });
             await db.SaveChangesAsync();
@@ -82,9 +92,19 @@ namespace Acme.Pki.Tenants.Identity.Tests
             {
                 TenantId = Guid.NewGuid(),
                 Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
                 DisplayName = "User",
+                Username = "user@test.local",
                 Role = TenantRole.User,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("GoodPassword"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
                 IsActive = true
             });
             await db.SaveChangesAsync();
@@ -107,9 +127,19 @@ namespace Acme.Pki.Tenants.Identity.Tests
             {
                 TenantId = Guid.NewGuid(),
                 Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
                 DisplayName = "User",
+                Username = "user@test.local",
                 Role = TenantRole.User,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("RotatePass"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
                 IsActive = true
             });
             await db.SaveChangesAsync();
@@ -137,9 +167,19 @@ namespace Acme.Pki.Tenants.Identity.Tests
             {
                 TenantId = Guid.NewGuid(),
                 Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
                 DisplayName = "User",
+                Username = "user@test.local",
                 Role = TenantRole.User,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("RevokePass"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
                 IsActive = true
             });
             await db.SaveChangesAsync();

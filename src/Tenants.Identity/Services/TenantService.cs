@@ -12,79 +12,79 @@ namespace Acme.Pki.Tenants.Identity.Services
     public class TenantService : ITenantService
     {
         private readonly TenantsIdentityDbContext _db;
+        public TenantService(TenantsIdentityDbContext db) => _db = db;
 
-        public TenantService(TenantsIdentityDbContext db)
+        public async Task<TenantDto> CreateAsync(TenantCreateDto dto)
         {
-            _db = db;
-        }
-
-        public async Task<TenantDto> CreateTenantAsync(TenantCreateDto dto)
-        {
-            var tenant = new Tenant { Name = dto.Name };
+            var tenant = new Tenant
+            {
+                Name = dto.Name,
+                Slug = string.IsNullOrWhiteSpace(dto.Slug) ? Guid.NewGuid().ToString("N") : dto.Slug,
+                PrimaryDomain = dto.PrimaryDomain ?? string.Empty,
+                PlanTier = dto.PlanTier ?? "Free",
+                MaxCertificates = dto.MaxCertificates,
+                Metadata = dto.Metadata ?? "{}",
+                OwnerContactEmail = string.Empty,
+                BillingAccountId = string.Empty,
+                Region = "global",
+                DefaultAuthPolicy = "Internal",
+                IsActive = true,
+                IsSuspended = false
+            };
             _db.Tenants.Add(tenant);
-
             if (dto.Domains != null)
             {
                 foreach (var d in dto.Domains)
                 {
-                    _db.TenantDomains.Add(new TenantDomain
-                    {
-                        TenantId = tenant.Id,
-                        Domain = d,
-                        ValidationMethod = "manual"
-                    });
+                    _db.TenantDomains.Add(new TenantDomain { TenantId = tenant.Id, Domain = d, ValidationMethod = "dns-txt" });
                 }
             }
-
             await _db.SaveChangesAsync();
-
-            return new TenantDto
-            {
-                Id = tenant.Id,
-                Name = tenant.Name,
-                Domains = dto.Domains ?? new List<string>(),
-                CreatedAt = tenant.CreatedAt,
-                IsActive = tenant.IsActive
-            };
+            return new TenantDto { Id = tenant.Id, Name = tenant.Name, Slug = tenant.Slug, PrimaryDomain = tenant.PrimaryDomain, PlanTier = tenant.PlanTier, MaxCertificates = tenant.MaxCertificates, Metadata = tenant.Metadata, IsActive = tenant.IsActive, IsSuspended = tenant.IsSuspended, CreatedAt = tenant.CreatedAt, Domains = dto.Domains ?? new List<string>() };
         }
 
-        public async Task<TenantDto> GetTenantAsync(Guid tenantId)
+        public async Task<TenantDto> GetAsync(Guid tenantId)
         {
             var t = await _db.Tenants.FindAsync(tenantId);
             if (t == null) return null;
             var domains = await _db.TenantDomains.Where(d => d.TenantId == tenantId).Select(d => d.Domain).ToListAsync();
-            return new TenantDto { Id = t.Id, Name = t.Name, Domains = domains, CreatedAt = t.CreatedAt, IsActive = t.IsActive };
+            return new TenantDto { Id = t.Id, Name = t.Name, Slug = t.Slug, PrimaryDomain = t.PrimaryDomain, PlanTier = t.PlanTier, MaxCertificates = t.MaxCertificates, Metadata = t.Metadata, IsActive = t.IsActive, IsSuspended = t.IsSuspended, CreatedAt = t.CreatedAt, Domains = domains };
         }
 
-        public async Task<IEnumerable<TenantDto>> ListTenantsAsync(int page = 1, int pageSize = 50)
+        public async Task<TenantDto> UpdateAsync(Guid tenantId, TenantCreateDto dto)
+        {
+            var t = await _db.Tenants.FindAsync(tenantId);
+            if (t == null) return null;
+            t.Name = dto.Name ?? t.Name;
+            t.PrimaryDomain = dto.PrimaryDomain ?? t.PrimaryDomain;
+            t.PlanTier = dto.PlanTier ?? t.PlanTier;
+            t.MaxCertificates = dto.MaxCertificates ?? t.MaxCertificates;
+            t.Metadata = dto.Metadata ?? t.Metadata;
+            t.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return await GetAsync(tenantId);
+        }
+
+        public async Task SuspendAsync(Guid tenantId, string reason)
+        {
+            var t = await _db.Tenants.FindAsync(tenantId);
+            if (t == null) throw new KeyNotFoundException();
+            t.IsSuspended = true;
+            t.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            // publish audit event (AuditService) - to be wired by DI
+        }
+
+        public async Task<IEnumerable<TenantDto>> ListAsync(int page = 1, int pageSize = 50)
         {
             var tenants = await _db.Tenants.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
             var result = new List<TenantDto>();
             foreach (var t in tenants)
             {
                 var domains = await _db.TenantDomains.Where(d => d.TenantId == t.Id).Select(d => d.Domain).ToListAsync();
-                result.Add(new TenantDto { Id = t.Id, Name = t.Name, Domains = domains, CreatedAt = t.CreatedAt, IsActive = t.IsActive });
+                result.Add(new TenantDto { Id = t.Id, Name = t.Name, Slug = t.Slug, PrimaryDomain = t.PrimaryDomain, PlanTier = t.PlanTier, MaxCertificates = t.MaxCertificates, Metadata = t.Metadata, IsActive = t.IsActive, IsSuspended = t.IsSuspended, CreatedAt = t.CreatedAt, Domains = domains });
             }
             return result;
-        }
-
-        public async Task<UserDto> CreateUserAsync(Guid tenantId, UserCreateDto dto)
-        {
-            var user = new User { TenantId = tenantId, Email = dto.Email, DisplayName = dto.DisplayName, Role = Enum.Parse<TenantRole>(dto.Role) };
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
-            return new UserDto { Id = user.Id, TenantId = user.TenantId, Email = user.Email, DisplayName = user.DisplayName, Role = user.Role.ToString(), CreatedAt = user.CreatedAt, IsActive = user.IsActive };
-        }
-
-        public async Task<IEnumerable<UserDto>> ListUsersAsync(Guid tenantId)
-        {
-            return await _db.Users.Where(u => u.TenantId == tenantId).Select(u => new UserDto { Id = u.Id, TenantId = u.TenantId, Email = u.Email, DisplayName = u.DisplayName, Role = u.Role.ToString(), CreatedAt = u.CreatedAt, IsActive = u.IsActive }).ToListAsync();
-        }
-
-        public async Task<Guid?> ResolveTenantByHostAsync(string host)
-        {
-            var domain = await _db.TenantDomains.FirstOrDefaultAsync(d => d.Domain == host);
-            return domain?.TenantId;
         }
     }
 }

@@ -7,11 +7,10 @@ namespace Acme.Pki.Tenants.Identity.Services
 {
     public interface ITenantService
     {
-        Task<TenantDto> CreateTenantAsync(TenantCreateDto dto);
-        Task<TenantDto> GetTenantAsync(Guid tenantId);
-        Task<IEnumerable<TenantDto>> ListTenantsAsync(int page = 1, int pageSize = 50);
-        Task<UserDto> CreateUserAsync(Guid tenantId, UserCreateDto dto);
-        Task<IEnumerable<UserDto>> ListUsersAsync(Guid tenantId);
-        Task<Guid?> ResolveTenantByHostAsync(string host);
+        Task<TenantDto> CreateAsync(TenantCreateDto dto);
+        Task<TenantDto> GetAsync(Guid tenantId);
+        Task<TenantDto> UpdateAsync(Guid tenantId, TenantCreateDto dto);
+        Task SuspendAsync(Guid tenantId, string reason);
+        Task<IEnumerable<TenantDto>> ListAsync(int page = 1, int pageSize = 50);
     }
 }

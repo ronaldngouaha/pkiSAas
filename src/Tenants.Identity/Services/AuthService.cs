@@ -21,13 +21,19 @@ namespace Acme.Pki.Tenants.Identity.Services
     {
         private readonly TenantsIdentityDbContext _db;
         private readonly IKeyProvider _keyProvider;
+        private readonly IKeyManagementService? _keyManagementService;
         private readonly IConfiguration _configuration;
 
-        public AuthService(TenantsIdentityDbContext db, IKeyProvider keyProvider, IConfiguration configuration)
+        public AuthService(
+            TenantsIdentityDbContext db,
+            IKeyProvider keyProvider,
+            IConfiguration configuration,
+            IKeyManagementService? keyManagementService = null)
         {
             _db = db;
             _keyProvider = keyProvider;
             _configuration = configuration;
+            _keyManagementService = keyManagementService;
         }
 
         public async Task<AuthResultDto> LoginAsync(LoginRequestDto dto, string ip)
@@ -37,8 +43,8 @@ namespace Acme.Pki.Tenants.Identity.Services
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
-            var email = dto.Email.Trim().ToLowerInvariant();
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail);
             if (user == null || !user.IsActive)
             {
                 throw new UnauthorizedAccessException("Invalid credentials.");
@@ -168,9 +174,10 @@ namespace Acme.Pki.Tenants.Identity.Services
 
         public async Task<UserDto> RegisterAsync(Guid? tenantId, RegisterRequestDto dto)
         {
-            var email = dto.Email.Trim().ToLowerInvariant();
+            var email = dto.Email.Trim();
+            var normalizedEmail = email.ToLowerInvariant();
 
-            var exists = await _db.Users.AnyAsync(u => u.TenantId == tenantId && u.Email.ToLower() == email);
+            var exists = await _db.Users.AnyAsync(u => u.TenantId == tenantId && u.NormalizedEmail == normalizedEmail);
             if (exists)
             {
                 throw new InvalidOperationException("User already exists for this tenant.");
@@ -181,11 +188,25 @@ namespace Acme.Pki.Tenants.Identity.Services
             {
                 TenantId = tenantId,
                 Email = email,
+                NormalizedEmail = normalizedEmail,
                 DisplayName = dto.DisplayName,
+                Username = normalizedEmail,
                 Role = role,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                IsEmailVerified = false,
+                EmailVerificationTokenHash = string.Empty,
+                MfaEnabled = false,
+                MfaMethods = "[]",
                 IsActive = true,
-                FailedLoginCount = 0
+                FailedLoginCount = 0,
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                IsPhoneVerified = false,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ServiceAccount = role == TenantRole.ServiceAccount,
+                ConsentVersion = "v1"
             };
 
             _db.Users.Add(user);
@@ -214,7 +235,7 @@ namespace Acme.Pki.Tenants.Identity.Services
         public async Task<bool> ValidatePasswordAsync(string email, string password)
         {
             var normalized = email.Trim().ToLowerInvariant();
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalized);
             if (user == null || !user.IsActive)
             {
                 return false;
@@ -225,8 +246,8 @@ namespace Acme.Pki.Tenants.Identity.Services
 
         private async Task<string> BuildAccessTokenAsync(User user, DateTime expiresAt)
         {
-            var issuer = _configuration["Jwt:Issuer"] ?? _configuration["JWT_ISSUER"] ?? "Acme.Pki.Tenants.Identity";
-            var audience = _configuration["Jwt:Audience"] ?? _configuration["JWT_AUDIENCE"] ?? "Acme.Pki";
+            var issuer = ResolveConfigValue("Jwt:Issuer", "JWT_ISSUER") ?? "Acme.Pki.Tenants.Identity";
+            var audience = ResolveConfigValue("Jwt:Audience", "JWT_AUDIENCE") ?? "Acme.Pki";
 
             var claims = new List<Claim>
             {
@@ -236,7 +257,7 @@ namespace Acme.Pki.Tenants.Identity.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            var (keyId, privateKey) = await _keyProvider.GetActiveRsaKeyAsync();
+            var (keyId, privateKey) = await ResolveActiveSigningKeyAsync();
             var rsaSecurityKey = new RsaSecurityKey(privateKey) { KeyId = keyId };
             var signingCredentials = new SigningCredentials(rsaSecurityKey, SecurityAlgorithms.RsaSha256);
 
@@ -285,6 +306,23 @@ namespace Acme.Pki.Tenants.Identity.Services
             return Convert.ToHexString(hash);
         }
 
+        private string? ResolveConfigValue(string configKey, string envKey)
+        {
+            var fromConfig = _configuration[configKey];
+            if (!string.IsNullOrWhiteSpace(fromConfig) && !(fromConfig.StartsWith("${") && fromConfig.EndsWith("}")))
+            {
+                return fromConfig;
+            }
+
+            var fromEnv = _configuration[envKey] ?? Environment.GetEnvironmentVariable(envKey);
+            if (!string.IsNullOrWhiteSpace(fromEnv) && !(fromEnv.StartsWith("${") && fromEnv.EndsWith("}")))
+            {
+                return fromEnv;
+            }
+
+            return null;
+        }
+
         private static TenantRole ResolveRole(Guid? tenantId, string? requestedRole)
         {
             if (tenantId == null)
@@ -312,11 +350,26 @@ namespace Acme.Pki.Tenants.Identity.Services
                 Id = user.Id,
                 TenantId = user.TenantId,
                 Email = user.Email,
+                NormalizedEmail = user.NormalizedEmail,
                 DisplayName = user.DisplayName,
                 Role = user.Role.ToString(),
-                CreatedAt = user.CreatedAt,
+                IsEmailVerified = user.IsEmailVerified,
+                MfaEnabled = user.MfaEnabled,
+                LastLoginAt = user.LastLoginAt,
                 IsActive = user.IsActive
+                ,
+                Metadata = user.Metadata
             };
+        }
+
+        private async Task<(string KeyId, RSAParameters PrivateKey)> ResolveActiveSigningKeyAsync()
+        {
+            if (_keyManagementService != null)
+            {
+                return await _keyManagementService.GetActiveSigningKeyAsync();
+            }
+
+            return await _keyProvider.GetActiveRsaKeyAsync();
         }
     }
 }

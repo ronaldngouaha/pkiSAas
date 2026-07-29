@@ -24,18 +24,32 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var result = await _auth.LoginAsync(dto, ip);
-            if (result == null) return Unauthorized();
-            return Ok(result);
+            try
+            {
+                var result = await _auth.LoginAsync(dto, ip);
+                if (result == null) return Unauthorized();
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
         }
 
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] string refreshToken)
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var result = await _auth.RefreshAsync(refreshToken, ip);
-            if (result == null) return Unauthorized();
-            return Ok(result);
+            try
+            {
+                var result = await _auth.RefreshAsync(refreshToken, ip);
+                if (result == null) return Unauthorized();
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
         }
 
         [HttpPost("revoke")]
@@ -49,8 +63,15 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromQuery] Guid? tenantId, [FromBody] RegisterRequestDto dto)
         {
-            var user = await _auth.RegisterAsync(tenantId, dto);
-            return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
+            try
+            {
+                var user = await _auth.RegisterAsync(tenantId, dto);
+                return CreatedAtAction(nameof(Register), new { id = user.Id }, user);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         [HttpPost("seed-superadmin")]

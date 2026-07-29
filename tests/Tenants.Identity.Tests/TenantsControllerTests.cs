@@ -12,7 +12,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
         private TenantsIdentityDbContext CreateDbContext()
         {
             var options = new DbContextOptionsBuilder<TenantsIdentityDbContext>()
-                .UseInMemoryDatabase(databaseName: "TenantsTestDb")
+                .UseInMemoryDatabase(databaseName: $"TenantsTestDb-{System.Guid.NewGuid()}")
                 .Options;
             return new TenantsIdentityDbContext(options);
         }
@@ -22,8 +22,16 @@ namespace Acme.Pki.Tenants.Identity.Tests
         {
             using var db = CreateDbContext();
             var service = new TenantService(db);
-            var dto = new TenantCreateDto { Name = "TestCo", Domains = new System.Collections.Generic.List<string> { "test.co" } };
-            var result = await service.CreateTenantAsync(dto);
+            var dto = new TenantCreateDto
+            {
+                Name = "TestCo",
+                Slug = "testco",
+                PrimaryDomain = "test.co",
+                PlanTier = "Free",
+                Metadata = "{}",
+                Domains = new System.Collections.Generic.List<string> { "test.co" }
+            };
+            var result = await service.CreateAsync(dto);
             Assert.NotNull(result);
             Assert.Equal("TestCo", result.Name);
         }

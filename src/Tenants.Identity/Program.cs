@@ -4,12 +4,31 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Acme.Pki.Tenants.Identity.Options;
 using Acme.Pki.Tenants.Identity.Data;
 using Acme.Pki.Tenants.Identity.Services;
 using Acme.Pki.Tenants.Identity.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
+
+string? ResolveConfigValue(string configKey, string envKey)
+{
+    var fromConfig = builder.Configuration[configKey];
+    if (!string.IsNullOrWhiteSpace(fromConfig) && !(fromConfig.StartsWith("${") && fromConfig.EndsWith("}")))
+    {
+        return fromConfig;
+    }
+
+    var fromEnv = builder.Configuration[envKey] ?? Environment.GetEnvironmentVariable(envKey);
+    if (!string.IsNullOrWhiteSpace(fromEnv) && !(fromEnv.StartsWith("${") && fromEnv.EndsWith("}")))
+    {
+        return fromEnv;
+    }
+
+    return null;
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -19,9 +38,15 @@ var conn = builder.Configuration.GetConnectionString("Default") ?? Environment.G
 builder.Services.AddDbContext<TenantsIdentityDbContext>(options => options.UseSqlServer(conn));
 
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IDomainService, DomainService>();
+builder.Services.AddScoped<IQuotaService, QuotaService>();
+builder.Services.AddScoped<IMfaService, MfaService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 builder.Services.AddSingleton<IKeyProvider, VaultKeyProvider>();
+builder.Services.AddScoped<IKeyManagementService, KeyManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services
@@ -32,16 +57,22 @@ builder.Services
     })
     .AddJwtBearer(options =>
     {
+        var issuer = ResolveConfigValue("Jwt:Issuer", "JWT_ISSUER") ?? "Acme.Pki.Tenants.Identity";
+        var audience = ResolveConfigValue("Jwt:Audience", "JWT_AUDIENCE") ?? "Acme.Pki";
+
+        options.MapInboundClaims = false;
         options.RequireHttpsMetadata = true;
         options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? builder.Configuration["JWT_ISSUER"],
+            ValidIssuer = issuer,
             ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"] ?? builder.Configuration["JWT_AUDIENCE"],
+            ValidAudience = audience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = "roles",
             IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
             {
                 var keyProvider = builder.Services.BuildServiceProvider().GetRequiredService<IKeyProvider>();
@@ -53,7 +84,7 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("SuperAdminOnly", policy => policy.RequireClaim("roles", "SuperAdmin"));
+    options.AddPolicy("SuperAdminOnly", policy => policy.RequireRole("SuperAdmin"));
 });
 
 builder.Services.AddHealthChecks().AddDbContextCheck<TenantsIdentityDbContext>();

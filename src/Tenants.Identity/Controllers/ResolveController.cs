@@ -8,8 +8,8 @@ namespace Acme.Pki.Tenants.Identity.Controllers
     [Route("api/v1/resolve")]
     public class ResolveController : ControllerBase
     {
-        private readonly ITenantService _service;
-        public ResolveController(ITenantService service) => _service = service;
+        private readonly IDomainService _service;
+        public ResolveController(IDomainService service) => _service = service;
 
         [HttpGet]
         public async Task<IActionResult> Resolve([FromQuery] string host)

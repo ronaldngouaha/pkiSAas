@@ -14,21 +14,46 @@ namespace Acme.Pki.Tenants.Identity.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Tenant>().HasKey(t => t.Id);
-            modelBuilder.Entity<TenantDomain>().HasKey(d => d.Id);
-            modelBuilder.Entity<User>().HasKey(u => u.Id);
-            modelBuilder.Entity<RefreshToken>().HasKey(r => r.Id);
+            // Tenant
+            modelBuilder.Entity<Tenant>(b =>
+            {
+                b.HasKey(t => t.Id);
+                b.Property(t => t.Name).IsRequired().HasMaxLength(200);
+                b.Property(t => t.Slug).HasMaxLength(100);
+                b.HasIndex(t => t.Slug).IsUnique();
+                b.HasIndex(t => t.PrimaryDomain).IsUnique(false);
+                b.Property(t => t.Metadata).HasColumnType("nvarchar(max)");
+            });
 
-            modelBuilder.Entity<User>()
-                .HasIndex(u => new { u.TenantId, u.Email })
-                .IsUnique();
+            // TenantDomain
+            modelBuilder.Entity<TenantDomain>(b =>
+            {
+                b.HasKey(d => d.Id);
+                b.HasIndex(d => d.Domain);
+                b.HasOne<Tenant>().WithMany(t => t.Domains).HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+            });
 
-            modelBuilder.Entity<TenantDomain>()
-                .HasIndex(d => d.Domain)
-                .IsUnique(false);
+            // User
+            modelBuilder.Entity<User>(b =>
+            {
+                b.HasKey(u => u.Id);
+                b.Property(u => u.Email).IsRequired().HasMaxLength(254);
+                b.Property(u => u.NormalizedEmail).IsRequired().HasMaxLength(254);
+                b.HasIndex(u => new { u.TenantId, u.NormalizedEmail }).IsUnique();
+                b.HasIndex(u => u.Role);
+                b.Property(u => u.MfaMethods).HasColumnType("nvarchar(max)");
+                b.Property(u => u.Metadata).HasColumnType("nvarchar(max)");
+                // filtered unique index for global SuperAdmin emails (TenantId IS NULL) can be added via raw SQL migration if needed
+            });
 
-            modelBuilder.Entity<RefreshToken>()
-                .HasIndex(r => r.UserId);
+            // RefreshToken (preserved for auth flows)
+            modelBuilder.Entity<RefreshToken>(b =>
+            {
+                b.HasKey(r => r.Id);
+                b.HasIndex(r => r.UserId);
+            });
+
+            base.OnModelCreating(modelBuilder);
         }
     }
 }
