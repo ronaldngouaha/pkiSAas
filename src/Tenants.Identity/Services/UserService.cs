@@ -18,7 +18,10 @@ namespace Acme.Pki.Tenants.Identity.Services
         public async Task<UserDto> CreateAsync(Guid tenantId, UserCreateDto dto)
         {
             var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
-            var role = Enum.Parse<TenantRole>(dto.Role);
+            var requestedRoles = UserRoleResolver.ParseRequestedRoles(dto.Role);
+            var primaryRole = requestedRoles.Contains(TenantRole.TenantAdmin)
+                ? TenantRole.TenantAdmin
+                : requestedRoles[0];
             var user = new User
             {
                 TenantId = tenantId,
@@ -26,22 +29,24 @@ namespace Acme.Pki.Tenants.Identity.Services
                 NormalizedEmail = normalizedEmail,
                 DisplayName = dto.DisplayName,
                 Username = normalizedEmail,
-                Role = role,
+                Role = primaryRole,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 IsEmailVerified = false,
                 EmailVerificationTokenHash = string.Empty,
-                MfaEnabled = dto.MfaEnabled,
-                MfaMethods = dto.MfaEnabled ? "[\"totp\"]" : "[]",
+                MfaEnabled = false,
+                MfaMethods = "[]",
                 IsActive = true,
                 PreferredLocale = "fr-FR",
                 Timezone = "UTC",
                 PhoneNumber = string.Empty,
                 IsPhoneVerified = false,
                 SecurityStamp = Guid.NewGuid().ToString("N"),
-                Metadata = dto.Metadata ?? "{}",
-                ServiceAccount = role == TenantRole.ServiceAccount,
+                Metadata = string.IsNullOrWhiteSpace(dto.Metadata) ? "{}" : dto.Metadata,
+                ServiceAccount = requestedRoles.Contains(TenantRole.ServiceAccount),
                 ConsentVersion = "v1"
             };
+
+            UserRoleResolver.SetRoles(user, requestedRoles);
 
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -52,6 +57,77 @@ namespace Acme.Pki.Tenants.Identity.Services
         {
             var user = await _db.Users.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Id == userId);
             return user == null ? null : Map(user);
+        }
+
+        public async Task<UserDto> UpdateAsync(Guid tenantId, Guid userId, UserUpdateDto dto)
+        {
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Id == userId);
+            if (user == null)
+            {
+                return null;
+            }
+
+            var email = dto.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new InvalidOperationException("Email is required.");
+            }
+
+            var normalizedEmail = email.ToLowerInvariant();
+            var emailExists = await _db.Users.AnyAsync(u => u.TenantId == tenantId && u.NormalizedEmail == normalizedEmail && u.Id != userId);
+            if (emailExists)
+            {
+                throw new InvalidOperationException("User already exists for this tenant.");
+            }
+
+            var requestedRoles = UserRoleResolver.ParseRequestedRoles(dto.Role);
+
+            user.Email = email;
+            user.NormalizedEmail = normalizedEmail;
+            user.Username = normalizedEmail;
+            user.DisplayName = dto.DisplayName?.Trim() ?? string.Empty;
+            user.Metadata = string.IsNullOrWhiteSpace(dto.Metadata) ? user.Metadata : dto.Metadata;
+            UserRoleResolver.SetRoles(user, requestedRoles);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return Map(user);
+        }
+
+        public async Task<UserDto> AddRoleAsync(Guid tenantId, Guid userId, string role)
+        {
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                throw new InvalidOperationException("Role is required.");
+            }
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Id == userId);
+            if (user == null)
+            {
+                throw new KeyNotFoundException();
+            }
+
+            if (!UserRoleResolver.TryParseTenantRole(role, out var parsedRole))
+            {
+                throw new InvalidOperationException("Invalid role.");
+            }
+
+            if (parsedRole == TenantRole.SuperAdmin)
+            {
+                throw new InvalidOperationException("SuperAdmin role is not allowed for tenant users.");
+            }
+
+            var roles = UserRoleResolver.GetRoles(user).ToList();
+            if (!roles.Contains(parsedRole))
+            {
+                roles.Add(parsedRole);
+            }
+
+            UserRoleResolver.SetRoles(user, roles);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return Map(user);
         }
 
         public async Task<IEnumerable<UserDto>> ListAsync(Guid tenantId, int page = 1, int pageSize = 50)
@@ -86,6 +162,23 @@ namespace Acme.Pki.Tenants.Identity.Services
             // publish audit event (AuditService) - to be wired by DI
         }
 
+        public async Task ChangePasswordAsync(Guid tenantId, Guid userId, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(newPassword))
+            {
+                throw new InvalidOperationException("New password is required.");
+            }
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Id == userId);
+            if (user == null) throw new KeyNotFoundException();
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword.Trim());
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+        }
+
         private static UserDto Map(User user)
         {
             return new UserDto
@@ -95,12 +188,12 @@ namespace Acme.Pki.Tenants.Identity.Services
                 Email = user.Email,
                 NormalizedEmail = user.NormalizedEmail,
                 DisplayName = user.DisplayName,
-                Role = user.Role.ToString(),
+                Role = UserRoleResolver.GetRoles(user).Select(r => r.ToString()).ToArray(),
                 IsEmailVerified = user.IsEmailVerified,
                 MfaEnabled = user.MfaEnabled,
                 LastLoginAt = user.LastLoginAt,
                 IsActive = user.IsActive,
-                Metadata = user.Metadata
+                Metadata = UserRoleResolver.BuildPublicMetadata(user.Metadata)
             };
         }
     }

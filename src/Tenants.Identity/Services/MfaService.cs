@@ -44,7 +44,6 @@ namespace Acme.Pki.Tenants.Identity.Services
             using var qrData = qrGenerator.CreateQrCode(otpauth, QRCodeGenerator.ECCLevel.Q);
             var qrCode = new PngByteQRCode(qrData);
             var qrBytes = qrCode.GetGraphic(20);
-            var qrBase64 = $"data:image/png;base64,{Convert.ToBase64String(qrBytes)}";
 
             var (encrypted, keyId) = await _keyEncryption.EncryptAsync(base32Secret);
 
@@ -61,7 +60,7 @@ namespace Acme.Pki.Tenants.Identity.Services
 
             return new MfaSetupDto
             {
-                QrCodeBase64Png = qrBase64,
+                QrCodePng = qrBytes,
                 ManualEntryKey = base32Secret
             };
         }

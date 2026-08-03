@@ -9,6 +9,7 @@ namespace Acme.Pki.Tenants.Identity.Models
         public string Name { get; set; }
         public string Slug { get; set; } // url friendly unique
         public string PrimaryDomain { get; set; }
+        public Guid? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
         public bool IsSuspended { get; set; } = false;

@@ -21,17 +21,20 @@ namespace Acme.Pki.Tenants.Identity.Services
     {
         private readonly TenantsIdentityDbContext _db;
         private readonly IKeyProvider _keyProvider;
+        private readonly IMfaService _mfaService;
         private readonly IKeyManagementService? _keyManagementService;
         private readonly IConfiguration _configuration;
 
         public AuthService(
             TenantsIdentityDbContext db,
             IKeyProvider keyProvider,
+            IMfaService mfaService,
             IConfiguration configuration,
             IKeyManagementService? keyManagementService = null)
         {
             _db = db;
             _keyProvider = keyProvider;
+            _mfaService = mfaService;
             _configuration = configuration;
             _keyManagementService = keyManagementService;
         }
@@ -45,9 +48,14 @@ namespace Acme.Pki.Tenants.Identity.Services
 
             var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
             var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail);
-            if (user == null || !user.IsActive)
+            if (user == null)
             {
                 throw new UnauthorizedAccessException("Invalid credentials.");
+            }
+
+            if (!user.IsActive)
+            {
+                throw new UnauthorizedAccessException("Desactivated account.");
             }
 
             if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTime.UtcNow)
@@ -69,12 +77,42 @@ namespace Acme.Pki.Tenants.Identity.Services
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
+            if (user.MfaEnabled)
+            {
+                var hasTotpCode = !string.IsNullOrWhiteSpace(dto.MfaCode);
+                var hasRecoveryCode = !string.IsNullOrWhiteSpace(dto.RecoveryCode);
+
+                if (!hasTotpCode && !hasRecoveryCode)
+                {
+                    throw new UnauthorizedAccessException("MFA code required.");
+                }
+
+                var isMfaValid = false;
+
+                if (hasTotpCode)
+                {
+                    isMfaValid = await _mfaService.VerifyTotpAsync(user.Id, dto.MfaCode!.Trim());
+                }
+
+                if (!isMfaValid && hasRecoveryCode)
+                {
+                    isMfaValid = await _mfaService.ConsumeRecoveryCodeAsync(user.Id, dto.RecoveryCode!.Trim());
+                }
+
+                if (!isMfaValid)
+                {
+                    throw new UnauthorizedAccessException("Invalid MFA code.");
+                }
+            }
+
+            var mfaSatisfiedForToken = user.MfaEnabled;
+
             user.FailedLoginCount = 0;
             user.LockoutUntil = null;
             user.LastLoginAt = DateTime.UtcNow;
 
             var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(GetAccessTokenMinutes());
-            var accessToken = await BuildAccessTokenAsync(user, accessTokenExpiresAt);
+            var accessToken = await BuildAccessTokenAsync(user, accessTokenExpiresAt, mfaSatisfiedForToken);
 
             var rawRefreshToken = GenerateRefreshToken();
             var refreshTokenHash = HashRefreshToken(rawRefreshToken);
@@ -140,7 +178,7 @@ namespace Acme.Pki.Tenants.Identity.Services
             });
 
             var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(GetAccessTokenMinutes());
-            var accessToken = await BuildAccessTokenAsync(user, accessTokenExpiresAt);
+            var accessToken = await BuildAccessTokenAsync(user, accessTokenExpiresAt, user.MfaEnabled);
 
             await _db.SaveChangesAsync();
 
@@ -244,7 +282,7 @@ namespace Acme.Pki.Tenants.Identity.Services
             return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         }
 
-        private async Task<string> BuildAccessTokenAsync(User user, DateTime expiresAt)
+        private async Task<string> BuildAccessTokenAsync(User user, DateTime expiresAt, bool mfaSatisfied = false)
         {
             var issuer = ResolveConfigValue("Jwt:Issuer", "JWT_ISSUER") ?? "Acme.Pki.Tenants.Identity";
             var audience = ResolveConfigValue("Jwt:Audience", "JWT_AUDIENCE") ?? "Acme.Pki";
@@ -253,9 +291,19 @@ namespace Acme.Pki.Tenants.Identity.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim("tid", user.TenantId?.ToString() ?? string.Empty),
-                new Claim("roles", user.Role.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            foreach (var role in UserRoleResolver.GetRoles(user).Select(r => r.ToString()))
+            {
+                claims.Add(new Claim("roles", role));
+            }
+
+            if (mfaSatisfied)
+            {
+                claims.Add(new Claim("amr", "mfa"));
+                claims.Add(new Claim("mfa", "true"));
+            }
 
             var (keyId, privateKey) = await ResolveActiveSigningKeyAsync();
             var rsaSecurityKey = new RsaSecurityKey(privateKey) { KeyId = keyId };
@@ -277,7 +325,7 @@ namespace Acme.Pki.Tenants.Identity.Services
         {
             if (int.TryParse(_configuration["Jwt:AccessTokenMinutes"], out var fromJwt)) return fromJwt;
             if (int.TryParse(_configuration["JWT_ACCESS_MINUTES"], out var fromEnv)) return fromEnv;
-            return 15;
+            return 30;
         }
 
         private string GenerateRefreshToken()
@@ -352,13 +400,13 @@ namespace Acme.Pki.Tenants.Identity.Services
                 Email = user.Email,
                 NormalizedEmail = user.NormalizedEmail,
                 DisplayName = user.DisplayName,
-                Role = user.Role.ToString(),
+                Role = UserRoleResolver.GetRoles(user).Select(r => r.ToString()).ToArray(),
                 IsEmailVerified = user.IsEmailVerified,
                 MfaEnabled = user.MfaEnabled,
                 LastLoginAt = user.LastLoginAt,
                 IsActive = user.IsActive
                 ,
-                Metadata = user.Metadata
+                Metadata = UserRoleResolver.BuildPublicMetadata(user.Metadata)
             };
         }
 

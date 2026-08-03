@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Acme.Pki.Tenants.Identity.Data;
 using Acme.Pki.Tenants.Identity.DTOs;
+using Acme.Pki.Tenants.Identity.DTOs.Mfa;
 using Acme.Pki.Tenants.Identity.Models;
 using Acme.Pki.Tenants.Identity.Services;
 using Microsoft.EntityFrameworkCore;
@@ -43,7 +44,8 @@ namespace Acme.Pki.Tenants.Identity.Tests
         {
             var config = CreateConfig();
             var keyProvider = new FakeKeyProvider();
-            return new AuthService(db, keyProvider, config);
+            var mfaService = new FakeMfaService();
+            return new AuthService(db, keyProvider, mfaService, config);
         }
 
         [Fact]
@@ -117,6 +119,42 @@ namespace Acme.Pki.Tenants.Identity.Tests
                     Email = "user@test.local",
                     Password = "BadPassword"
                 }, "127.0.0.1"));
+        }
+
+        [Fact]
+        public async Task Login_InactiveUser_ShouldThrowDesactivatedAccountMessage()
+        {
+            using var db = CreateDbContext();
+            db.Users.Add(new User
+            {
+                TenantId = Guid.NewGuid(),
+                Email = "inactive@test.local",
+                NormalizedEmail = "inactive@test.local",
+                DisplayName = "Inactive",
+                Username = "inactive@test.local",
+                Role = TenantRole.User,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("P@ssw0rd!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
+                IsActive = false
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db);
+            var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.LoginAsync(new LoginRequestDto
+                {
+                    Email = "inactive@test.local",
+                    Password = "P@ssw0rd!"
+                }, "127.0.0.1"));
+
+            Assert.Equal("Desactivated account.", ex.Message);
         }
 
         [Fact]
@@ -220,6 +258,154 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Null(superAdmins[0].TenantId);
         }
 
+        [Fact]
+        public async Task Login_SuperAdmin_WithMfaEnabled_WithoutCode_ShouldThrowUnauthorizedAccessException()
+        {
+            using var db = CreateDbContext();
+            db.Users.Add(new User
+            {
+                TenantId = null,
+                Email = "root@test.local",
+                NormalizedEmail = "root@test.local",
+                DisplayName = "Root",
+                Username = "root@test.local",
+                Role = TenantRole.SuperAdmin,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("RootPass123!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
+                MfaEnabled = true,
+                IsActive = true
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.LoginAsync(new LoginRequestDto
+                {
+                    Email = "root@test.local",
+                    Password = "RootPass123!"
+                }, "127.0.0.1"));
+        }
+
+        [Fact]
+        public async Task Login_SuperAdmin_WithMfaEnabled_WithTotp_ShouldSucceed()
+        {
+            using var db = CreateDbContext();
+            db.Users.Add(new User
+            {
+                TenantId = null,
+                Email = "root@test.local",
+                NormalizedEmail = "root@test.local",
+                DisplayName = "Root",
+                Username = "root@test.local",
+                Role = TenantRole.SuperAdmin,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("RootPass123!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
+                MfaEnabled = true,
+                IsActive = true
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db);
+            var result = await service.LoginAsync(new LoginRequestDto
+            {
+                Email = "root@test.local",
+                Password = "RootPass123!",
+                MfaCode = "123456"
+            }, "127.0.0.1");
+
+            Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
+            Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+        }
+
+        [Fact]
+        public async Task Login_TenantUser_WithMfaEnabled_WithoutCode_ShouldThrowUnauthorizedAccessException()
+        {
+            using var db = CreateDbContext();
+            db.Users.Add(new User
+            {
+                TenantId = Guid.NewGuid(),
+                Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
+                DisplayName = "User",
+                Username = "user@test.local",
+                Role = TenantRole.User,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("UserPass123!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
+                MfaEnabled = true,
+                IsActive = true
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.LoginAsync(new LoginRequestDto
+                {
+                    Email = "user@test.local",
+                    Password = "UserPass123!"
+                }, "127.0.0.1"));
+        }
+
+        [Fact]
+        public async Task Login_TenantUser_WithMfaEnabled_WithTotp_ShouldSucceed()
+        {
+            using var db = CreateDbContext();
+            db.Users.Add(new User
+            {
+                TenantId = Guid.NewGuid(),
+                Email = "user@test.local",
+                NormalizedEmail = "user@test.local",
+                DisplayName = "User",
+                Username = "user@test.local",
+                Role = TenantRole.User,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("UserPass123!"),
+                EmailVerificationTokenHash = string.Empty,
+                MfaMethods = "[]",
+                PreferredLocale = "fr-FR",
+                Timezone = "UTC",
+                PhoneNumber = string.Empty,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                Metadata = "{}",
+                ConsentVersion = "v1",
+                MfaEnabled = true,
+                IsActive = true
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db);
+            var result = await service.LoginAsync(new LoginRequestDto
+            {
+                Email = "user@test.local",
+                Password = "UserPass123!",
+                MfaCode = "123456"
+            }, "127.0.0.1");
+
+            Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
+            Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+        }
+
         private sealed class FakeKeyProvider : IKeyProvider
         {
             private readonly (string KeyId, RSAParameters PrivateKey) _key;
@@ -244,6 +430,43 @@ namespace Acme.Pki.Tenants.Identity.Tests
                 var e = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(pub.Exponent ?? Array.Empty<byte>());
                 var jwks = $"{{\"keys\":[{{\"kty\":\"RSA\",\"use\":\"sig\",\"alg\":\"RS256\",\"kid\":\"{_key.KeyId}\",\"n\":\"{n}\",\"e\":\"{e}\"}}]}}";
                 return Task.FromResult(jwks);
+            }
+        }
+
+        private sealed class FakeMfaService : IMfaService
+        {
+            public Task<MfaSetupDto> BeginTotpSetupAsync(Guid userId)
+            {
+                return Task.FromResult(new MfaSetupDto
+                {
+                    ManualEntryKey = "TESTKEY",
+                    QrCodePng = new byte[] { 0x89, 0x50, 0x4E, 0x47 }
+                });
+            }
+
+            public Task<bool> VerifyTotpAsync(Guid userId, string code)
+            {
+                return Task.FromResult(code == "123456");
+            }
+
+            public Task<string[]> GenerateRecoveryCodesAsync(Guid userId, int count = 10)
+            {
+                return Task.FromResult(new[] { "RECOVERY1" });
+            }
+
+            public Task<bool> ConsumeRecoveryCodeAsync(Guid userId, string code)
+            {
+                return Task.FromResult(code == "RECOVERY1");
+            }
+
+            public Task DisableTotpAsync(Guid userId)
+            {
+                return Task.CompletedTask;
+            }
+
+            public Task<bool> IsMfaEnabledAsync(Guid userId)
+            {
+                return Task.FromResult(true);
             }
         }
     }

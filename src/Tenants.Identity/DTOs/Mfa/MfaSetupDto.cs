@@ -2,7 +2,7 @@ namespace Acme.Pki.Tenants.Identity.DTOs.Mfa
 {
     public class MfaSetupDto
     {
-        public string QrCodeBase64Png { get; set; } = string.Empty;
+        public byte[] QrCodePng { get; set; } = Array.Empty<byte>();
         public string ManualEntryKey { get; set; } = string.Empty; // base32
     }
 }

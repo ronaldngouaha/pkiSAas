@@ -31,9 +31,11 @@ namespace Acme.Pki.Tenants.Identity.Tests
                 Metadata = "{}",
                 Domains = new System.Collections.Generic.List<string> { "test.co" }
             };
-            var result = await service.CreateAsync(dto);
+            var createdBy = System.Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var result = await service.CreateAsync(dto, createdBy);
             Assert.NotNull(result);
             Assert.Equal("TestCo", result.Name);
+            Assert.Equal(createdBy, result.CreatedBy);
         }
     }
 }

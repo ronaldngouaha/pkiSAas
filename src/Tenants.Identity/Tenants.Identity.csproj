@@ -5,8 +5,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Acme.Pki.Tenants.Identity</RootNamespace>
-  <AssemblyName>Acme.Pki.Tenants.Identity</AssemblyName>
-</PropertyGroup>
+    <AssemblyName>Acme.Pki.Tenants.Identity</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.*" />

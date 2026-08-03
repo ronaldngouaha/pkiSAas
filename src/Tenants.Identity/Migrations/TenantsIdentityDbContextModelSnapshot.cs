@@ -106,6 +106,9 @@ namespace Acme.Pki.Tenants.Identity.src.Tenants.Identity.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("DefaultAuthPolicy")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

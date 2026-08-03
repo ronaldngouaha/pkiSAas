@@ -9,6 +9,7 @@ namespace Acme.Pki.Tenants.Identity.DTOs
         public string Name { get; set; }
         public string Slug { get; set; }
         public string PrimaryDomain { get; set; }
+        public Guid? CreatedBy { get; set; }
         public string PlanTier { get; set; }
         public int? MaxCertificates { get; set; }
         public string Metadata { get; set; }

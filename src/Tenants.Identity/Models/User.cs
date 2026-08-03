@@ -2,7 +2,21 @@ using System;
 
 namespace Acme.Pki.Tenants.Identity.Models
 {
-    public enum TenantRole { SuperAdmin, TenantAdmin, User, Viewer, ServiceAccount }
+    public enum TenantRole
+    {
+        SuperAdmin,
+        TenantOwner,
+        TenantAdmin,
+        SecurityAdmin,
+        AppAdmin,
+        UserManager,
+        SupportAgent,
+        EndUser,
+        User,
+        Viewer,
+        ReadOnlyAdmin,
+        ServiceAccount
+    }
 
     public class User
     {

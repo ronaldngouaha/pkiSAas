@@ -10,6 +10,7 @@ namespace Acme.Pki.Tenants.Identity.Data
         public DbSet<Tenant> Tenants { get; set; }
         public DbSet<TenantDomain> TenantDomains { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<RoleCatalog> RoleCatalogs { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<UserMfaSecret> UserMfaSecrets { get; set; }
         public DbSet<RecoveryCode> RecoveryCodes { get; set; }
@@ -46,6 +47,21 @@ namespace Acme.Pki.Tenants.Identity.Data
                 b.Property(u => u.MfaMethods).HasColumnType("nvarchar(max)");
                 b.Property(u => u.Metadata).HasColumnType("nvarchar(max)");
                 // filtered unique index for global SuperAdmin emails (TenantId IS NULL) can be added via raw SQL migration if needed
+            });
+
+            // RoleCatalog
+            modelBuilder.Entity<RoleCatalog>(b =>
+            {
+                b.HasKey(r => r.Id);
+                b.Property(r => r.Name).IsRequired().HasMaxLength(120);
+                b.Property(r => r.NormalizedName).IsRequired().HasMaxLength(120);
+                b.Property(r => r.RoleMap).IsRequired().HasMaxLength(200);
+                b.Property(r => r.Scope).IsRequired().HasMaxLength(32);
+                b.Property(r => r.Definition).HasMaxLength(300);
+                b.Property(r => r.Description).HasMaxLength(1000);
+                b.Property(r => r.Attributes).HasColumnType("nvarchar(max)");
+                b.HasIndex(r => new { r.TenantId, r.NormalizedName });
+                b.HasIndex(r => new { r.Scope, r.IsDefault });
             });
 
             // RefreshToken (preserved for auth flows)
