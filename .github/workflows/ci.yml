@@ -18,7 +18,9 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore PkiSaas.sln
+        run: |
+          dotnet restore PkiSaas.sln
+          dotnet restore ${{ matrix.testProject }}
 
       - name: Build
         run: dotnet build PkiSaas.sln --configuration Release --no-restore

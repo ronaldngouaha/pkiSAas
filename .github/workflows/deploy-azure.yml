@@ -38,7 +38,9 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore PkiSaas.sln
+        run: |
+          dotnet restore PkiSaas.sln
+          dotnet restore tests/Tenants.Identity.Tests/Tenants.Identity.Tests.csproj
 
       - name: Build
         run: dotnet build PkiSaas.sln --configuration Release --no-restore
