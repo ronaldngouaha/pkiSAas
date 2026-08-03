@@ -59,6 +59,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Preflight GitHub Configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+
+          [[ -n "${{ secrets.AZURE_CLIENT_ID }}" ]] || missing+=("AZURE_CLIENT_ID")
+          [[ -n "${{ secrets.AZURE_TENANT_ID }}" ]] || missing+=("AZURE_TENANT_ID")
+          [[ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ]] || missing+=("AZURE_SUBSCRIPTION_ID")
+
+          [[ -n "${{ vars.AZURE_RESOURCE_GROUP }}" ]] || missing+=("AZURE_RESOURCE_GROUP")
+          [[ -n "${{ vars.AZURE_LOCATION }}" ]] || missing+=("AZURE_LOCATION")
+          [[ -n "${{ vars.ACR_NAME }}" ]] || missing+=("ACR_NAME")
+          [[ -n "${{ vars.KEYVAULT_NAME }}" ]] || missing+=("KEYVAULT_NAME")
+          [[ -n "${{ vars.SQL_SERVER_NAME }}" ]] || missing+=("SQL_SERVER_NAME")
+
+          [[ -n "${{ secrets.SQL_ADMIN_LOGIN }}" ]] || missing+=("SQL_ADMIN_LOGIN")
+          [[ -n "${{ secrets.SQL_ADMIN_PASSWORD }}" ]] || missing+=("SQL_ADMIN_PASSWORD")
+          [[ -n "${{ secrets.JWT_ISSUER }}" ]] || missing+=("JWT_ISSUER")
+          [[ -n "${{ secrets.JWT_AUDIENCE }}" ]] || missing+=("JWT_AUDIENCE")
+          [[ -n "${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}" ]] || missing+=("AUTH_REFRESH_TOKEN_HASH_KEY")
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required GitHub configuration values:" >&2
+            printf ' - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -84,21 +112,6 @@ jobs:
           echo "ENV_NAME=$ENV_NAME" >> "$GITHUB_ENV"
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME" >> "$GITHUB_ENV"
-
-      - name: Validate Required Variables
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${{ vars.AZURE_RESOURCE_GROUP }}"
-          test -n "${{ vars.AZURE_LOCATION }}"
-          test -n "${{ vars.ACR_NAME }}"
-          test -n "${{ vars.KEYVAULT_NAME }}"
-          test -n "${{ vars.SQL_SERVER_NAME }}"
-          test -n "${{ secrets.SQL_ADMIN_LOGIN }}"
-          test -n "${{ secrets.SQL_ADMIN_PASSWORD }}"
-          test -n "${{ secrets.JWT_ISSUER }}"
-          test -n "${{ secrets.JWT_AUDIENCE }}"
-          test -n "${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}"
 
       - name: Ensure Resource Group Exists
         run: |
