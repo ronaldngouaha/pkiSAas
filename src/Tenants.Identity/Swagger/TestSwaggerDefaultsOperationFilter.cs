@@ -281,6 +281,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["userId"] = new OpenApiString(TestUserId),
                         ["tenantId"] = new OpenApiString(TestTenantId),
                         ["email"] = new OpenApiString("tenant.user@test.local"),
+                        ["metadata"] = new OpenApiString("{\"department\":\"security\"}"),
                         ["role"] = new OpenApiArray { new OpenApiString("TenantAdmin") },
                         ["remainingValiditySeconds"] = new OpenApiInteger(593),
                         ["expiresAtUtc"] = new OpenApiString("2026-07-30T00:10:00Z")

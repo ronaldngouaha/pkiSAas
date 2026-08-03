@@ -74,7 +74,8 @@ namespace Acme.Pki.Tenants.Identity.Tests
                 {
                     new Claim("sub", userId.ToString()),
                     new Claim("tid", tenantId.ToString()),
-                    new Claim("roles", "TenantAdmin")
+                    new Claim("roles", "TenantAdmin"),
+                    new Claim("metadata", "{\"department\":\"security\"}")
                 },
                 notBefore: DateTime.UtcNow.AddMinutes(-1),
                 expires: DateTime.UtcNow.AddMinutes(10),
@@ -109,6 +110,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(userId, data.GetProperty("UserId").GetGuid());
             Assert.Equal(tenantId, data.GetProperty("TenantId").GetGuid());
             Assert.Equal("tenant.admin@test.local", data.GetProperty("Email").GetString());
+            Assert.Equal("{\"department\":\"security\"}", data.GetProperty("Metadata").GetString());
             Assert.Equal(JsonValueKind.Array, data.GetProperty("Role").ValueKind);
             Assert.Single(data.GetProperty("Role").EnumerateArray());
             Assert.Equal("TenantAdmin", data.GetProperty("Role").EnumerateArray().First().GetString());

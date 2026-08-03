@@ -291,7 +291,8 @@ namespace Acme.Pki.Tenants.Identity.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim("tid", user.TenantId?.ToString() ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("metadata", UserRoleResolver.BuildPublicMetadata(user.Metadata))
             };
 
             foreach (var role in UserRoleResolver.GetRoles(user).Select(r => r.ToString()))

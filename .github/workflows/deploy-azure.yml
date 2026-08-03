@@ -1,0 +1,199 @@
+name: Deploy Azure (IaC + Containers)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environmentName:
+        description: "Deployment environment name (dev/test/prod)"
+        required: true
+        default: "dev"
+      imageTag:
+        description: "Docker image tag override (defaults to commit SHA)"
+        required: false
+        default: ""
+  push:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "iac/**"
+      - ".github/workflows/deploy-azure.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  DOTNET_VERSION: "8.0.x"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore PkiSaas.sln
+
+      - name: Build
+        run: dotnet build PkiSaas.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/Tenants.Identity.Tests/Tenants.Identity.Tests.csproj --configuration Release --no-restore --verbosity normal
+
+      - name: Validate Bicep Syntax
+        run: az bicep build --file iac/main.bicep
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: ${{ github.event.inputs.environmentName || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve Deployment Variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV_NAME="${{ github.event.inputs.environmentName || 'dev' }}"
+          IMAGE_TAG_INPUT="${{ github.event.inputs.imageTag }}"
+          if [[ -n "$IMAGE_TAG_INPUT" ]]; then
+            IMAGE_TAG="$IMAGE_TAG_INPUT"
+          else
+            IMAGE_TAG="${GITHUB_SHA}"
+          fi
+
+          DEPLOYMENT_NAME="pkisaas-${ENV_NAME}-${GITHUB_RUN_ID}"
+
+          echo "ENV_NAME=$ENV_NAME" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME" >> "$GITHUB_ENV"
+
+      - name: Validate Required Variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ vars.AZURE_RESOURCE_GROUP }}"
+          test -n "${{ vars.AZURE_LOCATION }}"
+          test -n "${{ vars.ACR_NAME }}"
+          test -n "${{ vars.KEYVAULT_NAME }}"
+          test -n "${{ vars.SQL_SERVER_NAME }}"
+          test -n "${{ secrets.SQL_ADMIN_LOGIN }}"
+          test -n "${{ secrets.SQL_ADMIN_PASSWORD }}"
+          test -n "${{ secrets.JWT_ISSUER }}"
+          test -n "${{ secrets.JWT_AUDIENCE }}"
+          test -n "${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}"
+
+      - name: Ensure Resource Group Exists
+        run: |
+          az group create \
+            --name "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --location "${{ vars.AZURE_LOCATION }}"
+
+      - name: What-if IaC Deployment
+        run: |
+          az deployment group what-if \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file iac/main.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION }}" \
+              environmentName="$ENV_NAME" \
+              projectName="pkisaas" \
+              acrName="${{ vars.ACR_NAME }}" \
+              keyVaultName="${{ vars.KEYVAULT_NAME }}" \
+              sqlServerName="${{ vars.SQL_SERVER_NAME }}" \
+              sqlAdminLogin="${{ secrets.SQL_ADMIN_LOGIN }}" \
+              sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+              jwtIssuer="${{ secrets.JWT_ISSUER }}" \
+              jwtAudience="${{ secrets.JWT_AUDIENCE }}" \
+              authRefreshTokenHashKey="${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}" \
+              imageTag="bootstrap"
+
+      - name: Deploy IaC (Bootstrap)
+        run: |
+          az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file iac/main.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION }}" \
+              environmentName="$ENV_NAME" \
+              projectName="pkisaas" \
+              acrName="${{ vars.ACR_NAME }}" \
+              keyVaultName="${{ vars.KEYVAULT_NAME }}" \
+              sqlServerName="${{ vars.SQL_SERVER_NAME }}" \
+              sqlAdminLogin="${{ secrets.SQL_ADMIN_LOGIN }}" \
+              sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+              jwtIssuer="${{ secrets.JWT_ISSUER }}" \
+              jwtAudience="${{ secrets.JWT_AUDIENCE }}" \
+              authRefreshTokenHashKey="${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}" \
+              imageTag="bootstrap"
+
+      - name: Build and Push Service Images
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACR_NAME="${{ vars.ACR_NAME }}"
+          az acr login --name "$ACR_NAME"
+          ACR_LOGIN_SERVER="$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)"
+
+          declare -a SERVICES=(
+            "tenants-identity:src/Tenants.Identity/Dockerfile"
+            "pki-core:src/Pki.Core/Dockerfile"
+            "domain-validation:src/Domain.Validation/Dockerfile"
+            "certificates-lifecycle:src/Certificates.Lifecycle/Dockerfile"
+            "crl-publish:src/Crl.Publish/Dockerfile"
+            "admin-pki:src/Admin.Pki/Dockerfile"
+            "audit-events:src/Audit.Events/Dockerfile"
+          )
+
+          for entry in "${SERVICES[@]}"; do
+            image_name="${entry%%:*}"
+            dockerfile="${entry#*:}"
+
+            docker build -f "$dockerfile" -t "$ACR_LOGIN_SERVER/$image_name:$IMAGE_TAG" .
+            docker push "$ACR_LOGIN_SERVER/$image_name:$IMAGE_TAG"
+          done
+
+      - name: Deploy IaC (Release Tag)
+        run: |
+          az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file iac/main.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION }}" \
+              environmentName="$ENV_NAME" \
+              projectName="pkisaas" \
+              acrName="${{ vars.ACR_NAME }}" \
+              keyVaultName="${{ vars.KEYVAULT_NAME }}" \
+              sqlServerName="${{ vars.SQL_SERVER_NAME }}" \
+              sqlAdminLogin="${{ secrets.SQL_ADMIN_LOGIN }}" \
+              sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+              jwtIssuer="${{ secrets.JWT_ISSUER }}" \
+              jwtAudience="${{ secrets.JWT_AUDIENCE }}" \
+              authRefreshTokenHashKey="${{ secrets.AUTH_REFRESH_TOKEN_HASH_KEY }}" \
+              imageTag="$IMAGE_TAG"
+
+      - name: Show Deployment Endpoints
+        shell: bash
+        run: |
+          az deployment group show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$DEPLOYMENT_NAME" \
+            --query properties.outputs.webAppUrls.value -o json || true

@@ -204,6 +204,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var jwt = validatedToken as JwtSecurityToken ?? handler.ReadJwtToken(request.Token);
                 var sub = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
                 var tid = jwt.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+                var metadata = jwt.Claims.FirstOrDefault(c => c.Type == "metadata")?.Value;
 
                 Guid? userId = null;
                 if (Guid.TryParse(sub, out var parsedUserId))
@@ -261,6 +262,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                     UserId = userId,
                     TenantId = dbTenantId ?? tokenTenantId,
                     Email = email,
+                    Metadata = metadata,
                     Role = roles,
                     RemainingValiditySeconds = remainingValiditySeconds,
                     ExpiresAtUtc = expiresAtUtc

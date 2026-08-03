@@ -23,6 +23,9 @@ jobs:
       - name: Build
         run: dotnet build PkiSaas.sln --configuration Release --no-restore
 
+      - name: Validate Bicep Syntax
+        run: az bicep build --file iac/main.bicep
+
   test:
     runs-on: ubuntu-latest
     needs: build
