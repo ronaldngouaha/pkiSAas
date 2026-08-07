@@ -104,7 +104,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
 
             Assert.Equal(3, payload.Count);
             Assert.Equal(200, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
 
             var data = payload["data"];
             Assert.Equal(userId, data.GetProperty("UserId").GetGuid());

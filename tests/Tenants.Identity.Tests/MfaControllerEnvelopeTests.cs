@@ -24,7 +24,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
 
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status200OK, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.True(payload["data"].GetProperty("mfaEnabled").GetBoolean());
         }
 

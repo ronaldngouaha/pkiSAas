@@ -34,7 +34,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status201Created, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.Equal("bootstrap@pki.local", payload["data"].GetProperty("Email").GetString());
         }
 
@@ -58,7 +58,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status403Forbidden, payload["statuscode"].GetInt32());
             Assert.True(payload["data"].ValueKind == JsonValueKind.Null);
-            Assert.Equal("Acces refuse: seul un SuperAdmin peut creer un autre SuperAdmin.", payload["message"].GetString());
+            Assert.Equal("Access denied: only a SuperAdmin can create another SuperAdmin.", payload["message"].GetString());
         }
 
         [Fact]
@@ -80,7 +80,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status201Created, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.Equal("second@pki.local", payload["data"].GetProperty("Email").GetString());
         }
 
@@ -97,7 +97,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status200OK, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.Equal(JsonValueKind.Array, payload["data"].ValueKind);
         }
 
@@ -115,7 +115,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status404NotFound, payload["statuscode"].GetInt32());
             Assert.True(payload["data"].ValueKind == JsonValueKind.Null);
-            Assert.Equal("SuperAdmin introuvable.", payload["message"].GetString());
+            Assert.Equal("SuperAdmin not found.", payload["message"].GetString());
         }
 
         [Fact]
@@ -131,7 +131,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status200OK, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
         }
 
         [Fact]
@@ -148,7 +148,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(3, payload.Count);
             Assert.Equal(StatusCodes.Status404NotFound, payload["statuscode"].GetInt32());
             Assert.True(payload["data"].ValueKind == JsonValueKind.Null);
-            Assert.Equal("Utilisateur introuvable pour ce tenant.", payload["message"].GetString());
+            Assert.Equal("User not found for this tenant.", payload["message"].GetString());
         }
 
         private static SuperAdminsController CreateController(ISuperAdminService service, bool isSuperAdmin = false)

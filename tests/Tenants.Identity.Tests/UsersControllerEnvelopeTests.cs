@@ -24,7 +24,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status200OK, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.Equal(JsonValueKind.Array, payload["data"].ValueKind);
         }
 
@@ -39,7 +39,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(StatusCodes.Status404NotFound, response.StatusCode);
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status404NotFound, payload["statuscode"].GetInt32());
-            Assert.Equal("Utilisateur introuvable.", payload["message"].GetString());
+            Assert.Equal("User not found.", payload["message"].GetString());
             Assert.Equal(JsonValueKind.Null, payload["data"].ValueKind);
         }
 

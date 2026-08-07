@@ -52,6 +52,9 @@ param appServicePlanSku string = 'P1v3'
 @description('Resource tags.')
 param tags object = {}
 
+@description('Optional email receiver for alert notifications. Leave empty to create rules without notifications.')
+param alertEmailAddress string = ''
+
 var normalizedProject = toLower(replace(projectName, '.', '-'))
 
 var services = [
@@ -95,6 +98,8 @@ var services = [
 var appServicePlanName = '${normalizedProject}-${environmentName}-asp'
 var workspaceName = '${normalizedProject}-${environmentName}-law'
 var appInsightsName = '${normalizedProject}-${environmentName}-appi'
+var alertActionGroupName = '${normalizedProject}-${environmentName}-ops-ag'
+var alertActionGroupShortName = take(replace('${projectName}${environmentName}ops', '-', ''), 12)
 
 var sqlConnectionString = 'Server=tcp:${sqlServerName}.database.windows.net,1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
 
@@ -316,6 +321,161 @@ resource keyVaultSecretUserAssignments 'Microsoft.Authorization/roleAssignments@
 		roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
 	}
 }]
+
+resource alertActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = if (!empty(alertEmailAddress)) {
+	name: alertActionGroupName
+	location: 'global'
+	tags: tags
+	properties: {
+		groupShortName: alertActionGroupShortName
+		enabled: true
+		emailReceivers: [
+			{
+				name: 'primary-email'
+				emailAddress: alertEmailAddress
+				useCommonAlertSchema: true
+			}
+		]
+	}
+}
+
+var alertActionGroupIds = !empty(alertEmailAddress) ? [alertActionGroup.id] : []
+
+resource loginFailuresSpikeAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+	name: '${normalizedProject}-${environmentName}-login-fail-spike'
+	location: location
+	tags: tags
+	properties: {
+		description: 'Spike des échecs login sur Tenants.Identity.'
+		enabled: true
+		severity: 2
+		evaluationFrequency: 'PT5M'
+		windowSize: 'PT15M'
+		scopes: [
+			appInsights.id
+		]
+		criteria: {
+			allOf: [
+				{
+					query: 'AppTraces | where Message has "auth.login.failed" | summarize AggregatedValue = count()'
+					timeAggregation: 'Count'
+					operator: 'GreaterThan'
+					threshold: 20
+					failingPeriods: {
+						numberOfEvaluationPeriods: 1
+						minFailingPeriodsToAlert: 1
+					}
+				}
+			]
+		}
+		actions: {
+			actionGroups: alertActionGroupIds
+		}
+		autoMitigate: true
+	}
+}
+
+resource tokenReplayAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+	name: '${normalizedProject}-${environmentName}-token-replay'
+	location: location
+	tags: tags
+	properties: {
+		description: 'Détection de tentative de replay de refresh token.'
+		enabled: true
+		severity: 1
+		evaluationFrequency: 'PT5M'
+		windowSize: 'PT5M'
+		scopes: [
+			appInsights.id
+		]
+		criteria: {
+			allOf: [
+				{
+					query: 'AppTraces | where Message has "auth.refresh.replay_attempt" | summarize AggregatedValue = count()'
+					timeAggregation: 'Count'
+					operator: 'GreaterThan'
+					threshold: 0
+					failingPeriods: {
+						numberOfEvaluationPeriods: 1
+						minFailingPeriodsToAlert: 1
+					}
+				}
+			]
+		}
+		actions: {
+			actionGroups: alertActionGroupIds
+		}
+		autoMitigate: true
+	}
+}
+
+resource keyRotationFailuresAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+	name: '${normalizedProject}-${environmentName}-key-rotation-fail'
+	location: location
+	tags: tags
+	properties: {
+		description: 'Échecs de récupération/rotation de clé de signature JWT.'
+		enabled: true
+		severity: 1
+		evaluationFrequency: 'PT5M'
+		windowSize: 'PT5M'
+		scopes: [
+			appInsights.id
+		]
+		criteria: {
+			allOf: [
+				{
+					query: 'AppTraces | where Message has "auth.key.rotation.failed" | summarize AggregatedValue = count()'
+					timeAggregation: 'Count'
+					operator: 'GreaterThan'
+					threshold: 0
+					failingPeriods: {
+						numberOfEvaluationPeriods: 1
+						minFailingPeriodsToAlert: 1
+					}
+				}
+			]
+		}
+		actions: {
+			actionGroups: alertActionGroupIds
+		}
+		autoMitigate: true
+	}
+}
+
+resource auditPublishFailuresAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+	name: '${normalizedProject}-${environmentName}-audit-publish-fail'
+	location: location
+	tags: tags
+	properties: {
+		description: 'Échecs de publication d\'événements d\'audit.'
+		enabled: true
+		severity: 1
+		evaluationFrequency: 'PT5M'
+		windowSize: 'PT5M'
+		scopes: [
+			appInsights.id
+		]
+		criteria: {
+			allOf: [
+				{
+					query: 'AppTraces | where Message has "audit.publish.failed" | summarize AggregatedValue = count()'
+					timeAggregation: 'Count'
+					operator: 'GreaterThan'
+					threshold: 0
+					failingPeriods: {
+						numberOfEvaluationPeriods: 1
+						minFailingPeriodsToAlert: 1
+					}
+				}
+			]
+		}
+		actions: {
+			actionGroups: alertActionGroupIds
+		}
+		autoMitigate: true
+	}
+}
 
 output containerRegistryLoginServer string = acr.properties.loginServer
 output webAppNames array = [for (service, i) in services: webApps[i].name]

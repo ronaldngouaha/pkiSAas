@@ -25,7 +25,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status200OK, payload["statuscode"].GetInt32());
-            Assert.Equal("Requete traitee avec succes.", payload["message"].GetString());
+            Assert.Equal("Request processed successfully.", payload["message"].GetString());
             Assert.Equal(JsonValueKind.Array, payload["data"].ValueKind);
         }
 
@@ -40,7 +40,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
             Assert.Equal(StatusCodes.Status403Forbidden, response.StatusCode);
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status403Forbidden, payload["statuscode"].GetInt32());
-            Assert.Equal("Acces refuse: tenant introuvable dans le token.", payload["message"].GetString());
+            Assert.Equal("Access denied: tenant not found in token.", payload["message"].GetString());
         }
 
         [Fact]

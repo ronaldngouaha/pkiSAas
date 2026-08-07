@@ -21,6 +21,11 @@ Ce dossier contient le socle d'infrastructure Azure et la chaîne CI/CD pour dé
 - RBAC automatique:
   - `AcrPull` pour les identités managées des Web Apps
   - `Key Vault Secrets User` pour accès aux secrets
+- Alerting Azure Monitor (Scheduled Query Rules):
+  - Spike des échecs login (`auth.login.failed`)
+  - Tentatives de replay token (`auth.refresh.replay_attempt`)
+  - Échecs de rotation/résolution de clé (`auth.key.rotation.failed`)
+  - Échecs de publication audit (`audit.publish.failed`)
 
 ## 2) Pipeline GitHub Actions
 
@@ -50,6 +55,9 @@ Ce dossier contient le socle d'infrastructure Azure et la chaîne CI/CD pour dé
 - `ACR_NAME`
 - `KEYVAULT_NAME`
 - `SQL_SERVER_NAME`
+
+### Variables IaC additionnelles (optionnelles)
+- `alertEmailAddress`: email receveur des alertes Azure Monitor (si vide, règles créées sans notifications).
 
 ### Repository Secrets (`Settings > Secrets and variables > Actions > Secrets`)
 - `AZURE_CLIENT_ID`
@@ -95,3 +103,5 @@ az deployment group what-if \
 - Les secrets applicatifs (JWT + connexion SQL) sont stockés dans Key Vault puis injectés dans les Web Apps via références Key Vault.
 - Le template active `httpsOnly` et TLS minimum 1.2.
 - En production, adapter le SKU App Service, la stratégie SQL, les règles réseau et les diagnostics selon vos exigences de sécurité.
+- Les logs applicatifs d'auth exposent désormais des signaux structurés pour l'observabilité: `auth.login.failed`, `auth.refresh.replay_attempt`, `auth.key.rotation.failed`, `audit.publish.failed`.
+- Lien API métriques (protégé): `GET /api/v1/observability/metrics`.

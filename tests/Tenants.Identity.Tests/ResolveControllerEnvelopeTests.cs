@@ -23,7 +23,7 @@ namespace Acme.Pki.Tenants.Identity.Tests
 
             var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(response.Value))!;
             Assert.Equal(StatusCodes.Status404NotFound, payload["statuscode"].GetInt32());
-            Assert.Equal("Tenant introuvable.", payload["message"].GetString());
+            Assert.Equal("Tenant not found.", payload["message"].GetString());
         }
 
         private sealed class FakeDomainService : IDomainService

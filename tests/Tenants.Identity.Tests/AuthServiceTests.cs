@@ -10,6 +10,7 @@ using Acme.Pki.Tenants.Identity.Models;
 using Acme.Pki.Tenants.Identity.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Acme.Pki.Tenants.Identity.Tests
@@ -45,7 +46,8 @@ namespace Acme.Pki.Tenants.Identity.Tests
             var config = CreateConfig();
             var keyProvider = new FakeKeyProvider();
             var mfaService = new FakeMfaService();
-            return new AuthService(db, keyProvider, mfaService, config);
+            var telemetry = new IdentityTelemetry();
+            return new AuthService(db, keyProvider, mfaService, config, telemetry, NullLogger<AuthService>.Instance);
         }
 
         [Fact]

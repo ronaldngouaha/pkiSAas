@@ -17,3 +17,6 @@ param sqlServerName = 'pkisaas-dev-sql-001'
 // - authRefreshTokenHashKey
 
 param imageTag = 'latest'
+
+// Optionnel: email de réception des alertes Azure Monitor
+param alertEmailAddress = ''
