@@ -32,7 +32,9 @@ namespace Acme.Pki.Tenants.Identity.Data
             modelBuilder.Entity<TenantDomain>(b =>
             {
                 b.HasKey(d => d.Id);
-                b.HasIndex(d => d.Domain);
+                b.Property(d => d.Domain).IsRequired().HasMaxLength(255);
+                b.Property(d => d.ValidationToken).HasMaxLength(512).IsUnicode(false);
+                b.HasIndex(d => new { d.TenantId, d.Domain }).IsUnique();
                 b.HasOne<Tenant>().WithMany(t => t.Domains).HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
             });
 

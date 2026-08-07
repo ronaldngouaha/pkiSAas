@@ -32,11 +32,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var createdBy = GetCurrentSuperAdminId();
             if (createdBy == null)
             {
-                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
             }
 
             var created = await _service.CreateAsync(dto, createdBy.Value);
-            return BuildEnvelope(StatusCodes.Status201Created, created, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status201Created, created, "Request processed successfully.");
         }
 
         /// <summary>
@@ -52,10 +52,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var t = await _service.GetAsync(tenantId);
             if (t == null)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant not found.");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, t, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, t, "Request processed successfully.");
         }
 
         /// <summary>
@@ -72,10 +72,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var t = await _service.UpdateAsync(tenantId, dto);
             if (t == null)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant not found.");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, t, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, t, "Request processed successfully.");
         }
 
         /// <summary>
@@ -91,11 +91,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 var suspended = await _service.SuspendAsync(tenantId, request.Reason);
-                return BuildEnvelope(StatusCodes.Status200OK, suspended, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, suspended, "Request processed successfully.");
             }
             catch (System.Collections.Generic.KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant not found.");
             }
         }
 
@@ -109,7 +109,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             var list = await _service.ListAsync(page, pageSize);
-            return BuildEnvelope(StatusCodes.Status200OK, list, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, list, "Request processed successfully.");
         }
 
         public class SuspendRequest { public string Reason { get; set; } }

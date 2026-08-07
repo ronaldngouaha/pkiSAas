@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -36,9 +37,9 @@ namespace Acme.Pki.Tenants.Identity.Services
         public async Task<string> GetPublicJwksAsync()
         {
             var fromVault = await TryGetPublicJwksFromVaultAsync();
-            if (!string.IsNullOrWhiteSpace(fromVault))
+            if (IsUsableJwks(fromVault))
             {
-                return fromVault;
+                return fromVault!;
             }
 
             var active = await GetActiveRsaKeyAsync();
@@ -62,6 +63,24 @@ namespace Acme.Pki.Tenants.Identity.Services
             };
 
             return JsonSerializer.Serialize(jwks);
+        }
+
+        private static bool IsUsableJwks(string? jwks)
+        {
+            if (string.IsNullOrWhiteSpace(jwks))
+            {
+                return false;
+            }
+
+            try
+            {
+                var signingKeys = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwks).GetSigningKeys();
+                return signingKeys.Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private async Task<(string KeyId, RSAParameters PrivateKey)?> TryGetFromVaultAsync()
@@ -166,12 +185,48 @@ namespace Acme.Pki.Tenants.Identity.Services
                     return _fallbackKey.Value;
                 }
 
+                var localPemPath = ResolveLocalFallbackPemPath();
+                if (File.Exists(localPemPath))
+                {
+                    var existingPem = File.ReadAllText(localPemPath);
+                    if (!string.IsNullOrWhiteSpace(existingPem))
+                    {
+                        using var rsaFromFile = RSA.Create();
+                        rsaFromFile.ImportFromPem(existingPem);
+                        var keyIdFromFile = _configuration["Jwt:Signing:KeyId"] ?? ComputeKeyId(rsaFromFile.ExportParameters(false));
+                        _fallbackKey = (keyIdFromFile, rsaFromFile.ExportParameters(true));
+                        return _fallbackKey.Value;
+                    }
+                }
+
                 using var rsa = RSA.Create(2048);
                 var privateParams = rsa.ExportParameters(true);
                 var keyId = ComputeKeyId(rsa.ExportParameters(false));
+                var generatedPem = rsa.ExportRSAPrivateKeyPem();
+
+                var directory = Path.GetDirectoryName(localPemPath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllText(localPemPath, generatedPem);
                 _fallbackKey = (keyId, privateParams);
                 return _fallbackKey.Value;
             }
+        }
+
+        private string ResolveLocalFallbackPemPath()
+        {
+            var configured = _configuration["Jwt:Signing:LocalFallbackPemPath"];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return Path.GetFullPath(configured);
+            }
+
+            // Keep a stable dev key under the content root so tokens survive restarts.
+            var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
+            return Path.Combine(dataDir, "jwt-fallback-private.pem");
         }
 
         private static string ComputeKeyIdFromPem(string pem)

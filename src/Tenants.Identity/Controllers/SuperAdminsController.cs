@@ -45,11 +45,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var hasAnyActive = await _service.AnyActiveSuperAdminAsync();
                 if (hasAnyActive && !IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: seul un SuperAdmin peut creer un autre SuperAdmin.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: only a SuperAdmin can create another SuperAdmin.");
                 }
 
                 var created = await _service.CreateAsync(dto);
-                return BuildEnvelope(StatusCodes.Status201Created, created, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status201Created, created, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -57,7 +57,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -76,20 +76,20 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var user = await _service.GetAsync(id);
                 if (user == null)
                 {
-                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin introuvable.");
+                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin not found.");
                 }
 
-                return BuildEnvelope(StatusCodes.Status200OK, user, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, user, "Request processed successfully.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -109,16 +109,16 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var user = await _service.UpdateAsync(id, dto);
                 if (user == null)
                 {
-                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin introuvable.");
+                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin not found.");
                 }
 
-                return BuildEnvelope(StatusCodes.Status200OK, user, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, user, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -126,7 +126,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -144,15 +144,15 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var users = await _service.ListAsync(page, pageSize, includeInactive);
-                return BuildEnvelope(StatusCodes.Status200OK, users, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, users, "Request processed successfully.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -172,15 +172,15 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 await _service.DeactivateAsync(id, request.Reason);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin not found.");
             }
             catch (InvalidOperationException ex)
             {
@@ -188,7 +188,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -207,19 +207,19 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 await _service.ReactivateAsync(id, request.Reason);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin not found.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -239,15 +239,15 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 await _service.ChangePasswordAsync(id, request.NewPassword);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "SuperAdmin not found.");
             }
             catch (InvalidOperationException ex)
             {
@@ -255,7 +255,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -275,11 +275,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var created = await _service.CreateTenantAdminAsync(tenantId, dto);
-                return BuildEnvelope(StatusCodes.Status201Created, created, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status201Created, created, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -287,11 +287,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant not found.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -309,15 +309,15 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var users = await _service.ListTenantUsersAsync(tenantId, page, pageSize);
-                return BuildEnvelope(StatusCodes.Status200OK, users, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, users, "Request processed successfully.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 
@@ -336,19 +336,19 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 if (!IsCurrentUserSuperAdmin())
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: role SuperAdmin requis.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: SuperAdmin role required.");
                 }
 
                 var defaultPassword = await _service.ResetTenantUserPasswordToDefaultAsync(tenantId, userId);
-                return BuildEnvelope(StatusCodes.Status200OK, new { tenantId, userId, defaultPassword }, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, new { tenantId, userId, defaultPassword }, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable pour ce tenant.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found for this tenant.");
             }
             catch (Exception ex)
             {
-                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Erreur serveur: {ex.Message}");
+                return BuildEnvelope(StatusCodes.Status500InternalServerError, null, $"Server error: {ex.Message}");
             }
         }
 

@@ -5,15 +5,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using DnsClient;
 using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Security.Claims;
+using Microsoft.Extensions.Options;
 using Acme.Pki.Tenants.Identity.Options;
 using Acme.Pki.Tenants.Identity.Data;
 using Acme.Pki.Tenants.Identity.Services;
 using Acme.Pki.Tenants.Identity.Security;
 using Acme.Pki.Tenants.Identity.Swagger;
+using Acme.Pki.Tenants.Identity.Workers;
 using Acme.Pki.Tenants.Identity.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +50,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             requestPath.StartsWith("/api/v1/roles", StringComparison.OrdinalIgnoreCase) ||
             requestPath.StartsWith("/api/v1/auth", StringComparison.OrdinalIgnoreCase) ||
             requestPath.StartsWith("/api/v1/mfa", StringComparison.OrdinalIgnoreCase) ||
+            requestPath.StartsWith("/api/v1/observability", StringComparison.OrdinalIgnoreCase) ||
             requestPath.StartsWith("/api/v1/resolve", StringComparison.OrdinalIgnoreCase))
         {
             var errors = context.ModelState
@@ -79,24 +84,17 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Acme PKI Tenants Identity API - Test",
         Version = "v1",
-        Description = "Documentation Swagger pour l'environnement de test (base de donnees Test). La creation du premier SuperAdmin peut se faire sans bearer tant qu'aucun SuperAdmin actif n'existe en base; ensuite seul un bearer d'un autre SuperAdmin est accepte."
+        Description = "Swagger documentation for the test environment (Test database). The first SuperAdmin can be created without a bearer token only when no active SuperAdmin exists in the database; afterward, only a bearer token from another SuperAdmin is accepted."
     });
 
     options.SwaggerDoc("live", new OpenApiInfo
     {
         Title = "Acme PKI Tenants Identity API - Live",
         Version = "v1",
-        Description = "Documentation Swagger pour l'environnement live (base de donnees Live). La creation du premier SuperAdmin peut se faire sans bearer tant qu'aucun SuperAdmin actif n'existe en base; ensuite seul un bearer d'un autre SuperAdmin est accepte."
+        Description = "Swagger documentation for the live environment (Live database). The first SuperAdmin can be created without a bearer token only when no active SuperAdmin exists in the database; afterward, only a bearer token from another SuperAdmin is accepted."
     });
 
     options.DocInclusionPredicate((_, _) => true);
-
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-    {
-        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
-    }
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -105,11 +103,18 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Entrer: Bearer {votre_token_jwt}"
+        Description = "Enter: Bearer {your_jwt_token}"
     });
 
     options.OperationFilter<TestSwaggerDefaultsOperationFilter>();
     options.OperationFilter<AuthorizationRolesOperationFilter>();
+
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+    }
 });
 
 string ResolveConnectionString()
@@ -156,22 +161,68 @@ string ResolveConnectionString()
 
 var conn = ResolveConnectionString();
 builder.Services.AddDbContext<TenantsIdentityDbContext>(options => options.UseSqlServer(conn));
+builder.Services.AddSingleton(new LookupClient());
+builder.Services.AddHttpClient();
 
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISuperAdminService, SuperAdminService>();
 builder.Services.AddScoped<IRoleCatalogService, RoleCatalogService>();
-builder.Services.AddScoped<IDomainService, DomainService>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddScoped<IKeyEncryptionService, KeyEncryptionService>();
 builder.Services.AddScoped<IMfaService, MfaService>();
-builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddSingleton<IAuditService, AuditService>();
+builder.Services.AddSingleton<IIdentityTelemetry, IdentityTelemetry>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 builder.Services.AddSingleton<IKeyProvider, VaultKeyProvider>();
 builder.Services.AddScoped<IKeyManagementService, KeyManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ActiveUserTokenValidator>();
+builder.Services.AddScoped<IDomainService>(sp =>
+{
+    var dns = sp.GetRequiredService<LookupClient>();
+    var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var http = httpFactory.CreateClient();
+    var db = sp.GetRequiredService<TenantsIdentityDbContext>();
+    var logger = sp.GetRequiredService<ILogger<DomainService>>();
+    var auditService = sp.GetRequiredService<IAuditService>();
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    return new DomainService(db, logger, dns, http, auditService, configuration);
+});
+builder.Services.AddHostedService<DomainValidationWorker>();
+builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>>(sp =>
+    new ConfigureNamedOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+    {
+        var keyProvider = sp.GetRequiredService<IKeyProvider>();
+        var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+        options.TokenValidationParameters ??= new TokenValidationParameters();
+        options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+        {
+            try
+            {
+                var jwks = keyProvider.GetPublicJwksAsync().GetAwaiter().GetResult();
+                var keys = new JsonWebKeySet(jwks).GetSigningKeys();
+                if (keys.Count > 0)
+                {
+                    return keys;
+                }
+            }
+            catch (Exception ex)
+            {
+                loggerFactory.CreateLogger("JwtAuth").LogWarning(ex, "auth.jwt.key_resolver.jwks_failed kid={Kid}", kid ?? string.Empty);
+            }
+
+            var (fallbackKid, fallbackPrivateKey) = keyProvider.GetActiveRsaKeyAsync().GetAwaiter().GetResult();
+            using var rsa = RSA.Create();
+            rsa.ImportParameters(fallbackPrivateKey);
+
+            return new SecurityKey[]
+            {
+                new RsaSecurityKey(rsa.ExportParameters(false)) { KeyId = fallbackKid }
+            };
+        };
+    }));
 
 builder.Services
     .AddAuthentication(options =>
@@ -187,26 +238,64 @@ builder.Services
         options.MapInboundClaims = false;
         options.RequireHttpsMetadata = true;
         options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = issuer,
-            ValidateAudience = true,
-            ValidAudience = audience,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            NameClaimType = JwtRegisteredClaimNames.Sub,
-            RoleClaimType = "roles",
-            IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
-            {
-                var keyProvider = builder.Services.BuildServiceProvider().GetRequiredService<IKeyProvider>();
-                var jwks = keyProvider.GetPublicJwksAsync().GetAwaiter().GetResult();
-                return new JsonWebKeySet(jwks).GetSigningKeys();
-            }
-        };
+        options.TokenValidationParameters ??= new TokenValidationParameters();
+        options.TokenValidationParameters.ValidateIssuer = true;
+        options.TokenValidationParameters.ValidIssuer = issuer;
+        options.TokenValidationParameters.ValidateAudience = true;
+        options.TokenValidationParameters.ValidAudience = audience;
+        options.TokenValidationParameters.ValidateLifetime = true;
+        options.TokenValidationParameters.ValidateIssuerSigningKey = true;
+        options.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Sub;
+        options.TokenValidationParameters.RoleClaimType = "roles";
 
         options.Events = new JwtBearerEvents
         {
+            OnChallenge = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.HandleResponse();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json";
+
+                    return context.Response.WriteAsJsonAsync(new ApiEnvelopeDto
+                    {
+                        statuscode = StatusCodes.Status401Unauthorized,
+                        data = null,
+                        message = "Unauthorized"
+                    });
+                }
+
+                return Task.CompletedTask;
+            },
+            OnForbidden = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json";
+
+                    return context.Response.WriteAsJsonAsync(new ApiEnvelopeDto
+                    {
+                        statuscode = StatusCodes.Status403Forbidden,
+                        data = null,
+                        message = "Access denied."
+                    });
+                }
+
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    var loggerFactory = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                    var logger = loggerFactory.CreateLogger("JwtAuth");
+                    logger.LogWarning(context.Exception, "auth.jwt.failed path={Path} reason={Reason}", context.HttpContext.Request.Path, context.Exception.Message);
+                }
+
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var validator = context.HttpContext.RequestServices.GetRequiredService<ActiveUserTokenValidator>();
@@ -284,6 +373,7 @@ app.UseSwaggerUI(options =>
 app.Logger.LogInformation("Environment: {EnvironmentName}", currentEnvironment);
 
 app.UseRouting();
+app.UseMiddleware<CorrelationMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<TenantScopeMiddleware>();
 app.UseMiddleware<AuditMiddleware>();

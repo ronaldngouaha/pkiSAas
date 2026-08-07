@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -23,12 +24,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 return;
             }
 
+            EnsureDefaultDocumentation(operation, context);
+
             var allowAnonymous = methodInfo.GetCustomAttributes(true).OfType<AllowAnonymousAttribute>().Any()
                 || controllerType.GetCustomAttributes(true).OfType<AllowAnonymousAttribute>().Any();
 
             if (allowAnonymous)
             {
-                AppendRequiredAccess(operation, "Aucun role obligatoire (acces anonyme autorise).");
+                AppendRequiredAccess(operation, "No required role (anonymous access allowed).");
                 return;
             }
 
@@ -69,16 +72,16 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 AddBearerRequirement(operation);
                 operation.Responses.TryAdd("401", new OpenApiResponse
                 {
-                    Description = "Bearer absent ou invalide quand le bootstrap initial est deja termine."
+                    Description = "Missing or invalid bearer token after initial bootstrap is complete."
                 });
                 operation.Responses.TryAdd("403", new OpenApiResponse
                 {
-                    Description = "Seul un SuperAdmin authentifie peut creer un autre SuperAdmin apres le bootstrap."
+                    Description = "Only an authenticated SuperAdmin can create another SuperAdmin after bootstrap."
                 });
 
-                requirements.Add("Bootstrap initial: aucun bearer requis seulement si aucun SuperAdmin actif n'existe en base.");
-                requirements.Add("Apres bootstrap: bearer token obligatoire.");
-                requirements.Add("Apres bootstrap: seul un autre SuperAdmin peut creer un SuperAdmin.");
+                requirements.Add("Initial bootstrap: no bearer required only if no active SuperAdmin exists in the database.");
+                requirements.Add("After bootstrap: bearer token is required.");
+                requirements.Add("After bootstrap: only another SuperAdmin can create a SuperAdmin.");
             }
 
             if (requirements.Count == 0)
@@ -108,97 +111,97 @@ namespace Acme.Pki.Tenants.Identity.Swagger
 
             if (string.Equals(policy, "TenantAdminPolicy", StringComparison.OrdinalIgnoreCase))
             {
-                yield return "Role: AdminTenant (ou SuperAdmin)";
+                yield return "Role: AdminTenant (or SuperAdmin)";
                 yield break;
             }
 
             if (string.Equals(policy, "RequireMfa", StringComparison.OrdinalIgnoreCase))
             {
-                yield return "Utilisateur authentifie";
-                yield return "MFA valide (claim amr=mfa) quand MFA est active";
+                yield return "Authenticated user";
+                yield return "Valid MFA (claim amr=mfa) when MFA is enabled";
                 yield break;
             }
 
             if (string.Equals(policy, "TenantOwnerPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: TenantOwner";
-                yield return "TenantScope requis";
+                yield return "TenantScope required";
                 yield break;
             }
 
             if (string.Equals(policy, "TenantAdminSensitivePolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: TenantAdmin";
-                yield return "TenantScope requis";
-                yield return "MFA requis";
+                yield return "TenantScope required";
+                yield return "MFA required";
                 yield break;
             }
 
             if (string.Equals(policy, "TenantAdminOrUserManagerPolicy", StringComparison.OrdinalIgnoreCase))
             {
-                yield return "Role: TenantAdmin ou UserManager";
-                yield return "TenantScope requis";
+                yield return "Role: TenantAdmin or UserManager";
+                yield return "TenantScope required";
                 yield break;
             }
 
             if (string.Equals(policy, "SecurityAdminPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: SecurityAdmin";
-                yield return "MFA requis";
+                yield return "MFA required";
                 yield break;
             }
 
             if (string.Equals(policy, "AppAdminPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: AppAdmin";
-                yield return "TenantScope requis";
-                yield return "Approval workflow requis (claim approval=true)";
+                yield return "TenantScope required";
+                yield return "Approval workflow required (claim approval=true)";
                 yield break;
             }
 
             if (string.Equals(policy, "UserManagerPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: UserManager";
-                yield return "TenantScope requis";
+                yield return "TenantScope required";
                 yield break;
             }
 
             if (string.Equals(policy, "SupportAgentPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: SupportAgent";
-                yield return "TenantScope requis";
-                yield return "Session support limitee dans le temps (claim support_session_exp)";
+                yield return "TenantScope required";
+                yield return "Time-limited support session (claim support_session_exp)";
                 yield break;
             }
 
             if (string.Equals(policy, "EndUserOwnResourcePolicy", StringComparison.OrdinalIgnoreCase))
             {
-                yield return "Role: EndUser (ou User legacy)";
-                yield return "TenantScope requis";
-                yield return "Ressource propre uniquement (userId route == sub)";
+                yield return "Role: EndUser (or legacy User)";
+                yield return "TenantScope required";
+                yield return "Own resource only (route userId == sub)";
                 yield break;
             }
 
             if (string.Equals(policy, "ServiceAccountPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: ServiceAccount";
-                yield return "Scope restreint requis (scope/scp non vide et different de *)";
+                yield return "Restricted scope required (non-empty scope/scp and not equal to *)";
                 yield break;
             }
 
             if (string.Equals(policy, "ViewerPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: Viewer";
-                yield return "TenantScope requis";
-                yield return "Lecture seule (GET/HEAD/OPTIONS)";
+                yield return "TenantScope required";
+                yield return "Read-only (GET/HEAD/OPTIONS)";
                 yield break;
             }
 
             if (string.Equals(policy, "ReadOnlyAdminPolicy", StringComparison.OrdinalIgnoreCase))
             {
                 yield return "Role: ReadOnlyAdmin";
-                yield return "TenantScope requis";
-                yield return "Lecture seule (GET/HEAD/OPTIONS)";
+                yield return "TenantScope required";
+                yield return "Read-only (GET/HEAD/OPTIONS)";
                 yield break;
             }
 
@@ -232,7 +235,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
 
         private static void AppendRequiredAccess(OpenApiOperation operation, string requiredAccess)
         {
-            var line = $"Roles/Acces requis: {requiredAccess}";
+            var line = $"Required access roles: {requiredAccess}";
 
             if (string.IsNullOrWhiteSpace(operation.Description))
             {
@@ -241,6 +244,41 @@ namespace Acme.Pki.Tenants.Identity.Swagger
             }
 
             operation.Description += $"\n\n{line}";
+        }
+
+        private static void EnsureDefaultDocumentation(OpenApiOperation operation, OperationFilterContext context)
+        {
+            var httpMethod = (context.ApiDescription.HttpMethod ?? "GET").ToUpperInvariant();
+            var rawPath = context.ApiDescription.RelativePath ?? string.Empty;
+            var normalizedPath = rawPath.StartsWith('/') ? rawPath : $"/{rawPath}";
+
+            operation.Summary = BuildSummary(context, httpMethod, normalizedPath);
+
+            if (string.IsNullOrWhiteSpace(operation.Description))
+            {
+                operation.Description = $"Endpoint for {httpMethod} {normalizedPath}.";
+            }
+        }
+
+        private static string BuildSummary(OperationFilterContext context, string httpMethod, string normalizedPath)
+        {
+            var controller = context.ApiDescription.ActionDescriptor.RouteValues.TryGetValue("controller", out var value)
+                ? value
+                : null;
+
+            var action = (context.ApiDescription.ActionDescriptor as ControllerActionDescriptor)?.ActionName;
+
+            if (!string.IsNullOrWhiteSpace(controller) && !string.IsNullOrWhiteSpace(action))
+            {
+                return $"{controller} - {action} ({httpMethod})";
+            }
+
+            if (!string.IsNullOrWhiteSpace(controller))
+            {
+                return $"{controller} endpoint ({httpMethod})";
+            }
+
+            return $"{httpMethod} {normalizedPath}";
         }
     }
 }

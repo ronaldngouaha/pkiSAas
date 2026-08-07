@@ -27,10 +27,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var tenantId = await _service.ResolveTenantByHostAsync(host);
             if (tenantId == null)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Tenant not found.");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, new { tenantId }, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, new { tenantId }, "Request processed successfully.");
         }
 
         private ObjectResult BuildEnvelope(int statusCode, object? data, string message)

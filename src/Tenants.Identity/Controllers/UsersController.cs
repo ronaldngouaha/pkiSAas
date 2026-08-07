@@ -30,7 +30,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> Create(Guid tenantId, [FromBody] UserCreateDto dto)
         {
             var user = await _service.CreateAsync(tenantId, dto);
-            return BuildEnvelope(StatusCodes.Status201Created, user, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status201Created, user, "Request processed successfully.");
         }
 
         /// <summary>
@@ -46,10 +46,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var user = await _service.GetAsync(tenantId, userId);
             if (user == null)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, user, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, user, "Request processed successfully.");
         }
 
         /// <summary>
@@ -68,10 +68,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var user = await _service.UpdateAsync(tenantId, userId, dto);
                 if (user == null)
                 {
-                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                    return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
                 }
 
-                return BuildEnvelope(StatusCodes.Status200OK, user, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, user, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -89,7 +89,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> List(Guid tenantId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             var users = await _service.ListAsync(tenantId, page, pageSize);
-            return BuildEnvelope(StatusCodes.Status200OK, users, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, users, "Request processed successfully.");
         }
 
         /// <summary>
@@ -105,11 +105,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 await _service.DeactivateAsync(tenantId, userId, req.Reason);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
             }
         }
 
@@ -126,11 +126,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 await _service.ReactivateAsync(tenantId, userId, req.Reason);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
             }
         }
 
@@ -148,11 +148,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 await _service.ChangePasswordAsync(tenantId, userId, req.NewPassword);
-                return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
             }
             catch (InvalidOperationException ex)
             {
@@ -175,11 +175,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 var user = await _service.AddRoleAsync(tenantId, userId, req.Role);
-                return BuildEnvelope(StatusCodes.Status200OK, user, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, user, "Request processed successfully.");
             }
             catch (KeyNotFoundException)
             {
-                return BuildEnvelope(StatusCodes.Status404NotFound, null, "Utilisateur introuvable.");
+                return BuildEnvelope(StatusCodes.Status404NotFound, null, "User not found.");
             }
             catch (InvalidOperationException ex)
             {

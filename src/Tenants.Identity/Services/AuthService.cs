@@ -13,6 +13,7 @@ using BCrypt.Net;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Acme.Pki.Tenants.Identity.Services
@@ -24,18 +25,24 @@ namespace Acme.Pki.Tenants.Identity.Services
         private readonly IMfaService _mfaService;
         private readonly IKeyManagementService? _keyManagementService;
         private readonly IConfiguration _configuration;
+        private readonly IIdentityTelemetry _telemetry;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             TenantsIdentityDbContext db,
             IKeyProvider keyProvider,
             IMfaService mfaService,
             IConfiguration configuration,
+            IIdentityTelemetry telemetry,
+            ILogger<AuthService> logger,
             IKeyManagementService? keyManagementService = null)
         {
             _db = db;
             _keyProvider = keyProvider;
             _mfaService = mfaService;
             _configuration = configuration;
+            _telemetry = telemetry;
+            _logger = logger;
             _keyManagementService = keyManagementService;
         }
 
@@ -43,6 +50,8 @@ namespace Acme.Pki.Tenants.Identity.Services
         {
             if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
             {
+                _telemetry.RecordLoginFailure("missing_credentials");
+                _logger.LogWarning("auth.login.failed reason={Reason}", "missing_credentials");
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
@@ -50,16 +59,22 @@ namespace Acme.Pki.Tenants.Identity.Services
             var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail);
             if (user == null)
             {
+                _telemetry.RecordLoginFailure("user_not_found");
+                _logger.LogWarning("auth.login.failed reason={Reason}", "user_not_found");
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
             if (!user.IsActive)
             {
+                _telemetry.RecordLoginFailure("user_inactive");
+                _logger.LogWarning("auth.login.failed reason={Reason} userId={UserId}", "user_inactive", user.Id);
                 throw new UnauthorizedAccessException("Desactivated account.");
             }
 
             if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTime.UtcNow)
             {
+                _telemetry.RecordLoginFailure("account_locked");
+                _logger.LogWarning("auth.login.failed reason={Reason} userId={UserId}", "account_locked", user.Id);
                 throw new UnauthorizedAccessException("Account is locked.");
             }
 
@@ -74,6 +89,8 @@ namespace Acme.Pki.Tenants.Identity.Services
                 }
 
                 await _db.SaveChangesAsync();
+                _telemetry.RecordLoginFailure("invalid_password");
+                _logger.LogWarning("auth.login.failed reason={Reason} userId={UserId}", "invalid_password", user.Id);
                 throw new UnauthorizedAccessException("Invalid credentials.");
             }
 
@@ -84,6 +101,9 @@ namespace Acme.Pki.Tenants.Identity.Services
 
                 if (!hasTotpCode && !hasRecoveryCode)
                 {
+                    _telemetry.RecordMfaFailure("mfa_code_required");
+                    _telemetry.RecordLoginFailure("mfa_code_required");
+                    _logger.LogWarning("auth.mfa.failed reason={Reason} userId={UserId}", "mfa_code_required", user.Id);
                     throw new UnauthorizedAccessException("MFA code required.");
                 }
 
@@ -101,6 +121,9 @@ namespace Acme.Pki.Tenants.Identity.Services
 
                 if (!isMfaValid)
                 {
+                    _telemetry.RecordMfaFailure("invalid_mfa_code");
+                    _telemetry.RecordLoginFailure("invalid_mfa_code");
+                    _logger.LogWarning("auth.mfa.failed reason={Reason} userId={UserId}", "invalid_mfa_code", user.Id);
                     throw new UnauthorizedAccessException("Invalid MFA code.");
                 }
             }
@@ -128,6 +151,8 @@ namespace Acme.Pki.Tenants.Identity.Services
             });
 
             await _db.SaveChangesAsync();
+            _telemetry.RecordLoginSuccess(user.MfaEnabled);
+            _logger.LogInformation("auth.login.success userId={UserId} tenantId={TenantId} mfaEnabled={MfaEnabled}", user.Id, user.TenantId, user.MfaEnabled);
 
             return new AuthResultDto
             {
@@ -142,6 +167,8 @@ namespace Acme.Pki.Tenants.Identity.Services
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
+                _telemetry.RecordRefreshFailure("missing_refresh_token");
+                _logger.LogWarning("auth.refresh.failed reason={Reason}", "missing_refresh_token");
                 throw new UnauthorizedAccessException("Invalid refresh token.");
             }
 
@@ -149,14 +176,33 @@ namespace Acme.Pki.Tenants.Identity.Services
             var tokenEntity = await _db.RefreshTokens
                 .FirstOrDefaultAsync(r => r.TokenHash == refreshTokenHash);
 
-            if (tokenEntity == null || tokenEntity.RevokedAt.HasValue || tokenEntity.ExpiresAt <= DateTime.UtcNow)
+            if (tokenEntity == null)
             {
+                _telemetry.RecordRefreshFailure("refresh_token_not_found");
+                _logger.LogWarning("auth.refresh.failed reason={Reason}", "refresh_token_not_found");
+                throw new UnauthorizedAccessException("Invalid refresh token.");
+            }
+
+            if (tokenEntity.RevokedAt.HasValue)
+            {
+                _telemetry.RecordTokenReplayAttempt();
+                _telemetry.RecordRefreshFailure("refresh_token_replayed");
+                _logger.LogWarning("auth.refresh.replay_attempt tokenId={TokenId} userId={UserId}", tokenEntity.Id, tokenEntity.UserId);
+                throw new UnauthorizedAccessException("Invalid refresh token.");
+            }
+
+            if (tokenEntity.ExpiresAt <= DateTime.UtcNow)
+            {
+                _telemetry.RecordRefreshFailure("refresh_token_expired");
+                _logger.LogWarning("auth.refresh.failed reason={Reason} tokenId={TokenId} userId={UserId}", "refresh_token_expired", tokenEntity.Id, tokenEntity.UserId);
                 throw new UnauthorizedAccessException("Invalid refresh token.");
             }
 
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == tokenEntity.UserId);
             if (user == null || !user.IsActive)
             {
+                _telemetry.RecordRefreshFailure("refresh_token_user_invalid");
+                _logger.LogWarning("auth.refresh.failed reason={Reason} userId={UserId}", "refresh_token_user_invalid", tokenEntity.UserId);
                 throw new UnauthorizedAccessException("Invalid refresh token.");
             }
 
@@ -181,6 +227,7 @@ namespace Acme.Pki.Tenants.Identity.Services
             var accessToken = await BuildAccessTokenAsync(user, accessTokenExpiresAt, user.MfaEnabled);
 
             await _db.SaveChangesAsync();
+            _logger.LogInformation("auth.refresh.success userId={UserId} tenantId={TenantId}", user.Id, user.TenantId);
 
             return new AuthResultDto
             {

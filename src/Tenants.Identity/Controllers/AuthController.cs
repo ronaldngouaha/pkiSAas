@@ -57,10 +57,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var result = await _auth.LoginAsync(dto, ip);
                 if (result == null)
                 {
-                    return BuildEnvelope(StatusCodes.Status401Unauthorized, null, "Identifiants invalides.");
+                    return BuildEnvelope(StatusCodes.Status401Unauthorized, null, "Invalid credentials.");
                 }
 
-                return BuildEnvelope(StatusCodes.Status200OK, result, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, result, "Request processed successfully.");
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -81,10 +81,10 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var result = await _auth.RefreshAsync(refreshToken, ip);
                 if (result == null)
                 {
-                    return BuildEnvelope(StatusCodes.Status401Unauthorized, null, "Refresh token invalide.");
+                    return BuildEnvelope(StatusCodes.Status401Unauthorized, null, "Invalid refresh token.");
                 }
 
-                return BuildEnvelope(StatusCodes.Status200OK, result, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status200OK, result, "Request processed successfully.");
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -101,7 +101,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             await _auth.RevokeRefreshTokenAsync(refreshToken, ip);
-            return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
         }
 
         /// <summary>
@@ -116,13 +116,13 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         {
             if (!CanRegisterForTenant(tenantId, dto))
             {
-                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse.");
+                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied.");
             }
 
             try
             {
                 var user = await _auth.RegisterAsync(tenantId, dto);
-                return BuildEnvelope(StatusCodes.Status201Created, user, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status201Created, user, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -140,11 +140,11 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var hasSuperAdmin = await _db.Users.AnyAsync(u => u.Role == TenantRole.SuperAdmin && u.IsActive);
             if (hasSuperAdmin && !User.HasClaim(c => c.Type == "roles" && c.Value == "SuperAdmin"))
             {
-                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse.");
+                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied.");
             }
 
             await _auth.SeedSuperAdminAsync(dto);
-            return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
         }
 
         /// <summary>
@@ -155,7 +155,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public IActionResult Me()
         {
             var claims = User.Claims.Select(c => new { c.Type, c.Value });
-            return BuildEnvelope(StatusCodes.Status200OK, claims, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, claims, "Request processed successfully.");
         }
 
         /// <summary>
@@ -266,7 +266,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                     Role = roles,
                     RemainingValiditySeconds = remainingValiditySeconds,
                     ExpiresAtUtc = expiresAtUtc
-                }, "Requete traitee avec succes.");
+                }, "Request processed successfully.");
             }
             catch (SecurityTokenException)
             {

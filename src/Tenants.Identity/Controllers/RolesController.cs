@@ -39,14 +39,14 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 var tidClaim = User.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
                 if (!Guid.TryParse(tidClaim, out var parsedTenantId))
                 {
-                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: tenant introuvable dans le token.");
+                    return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: tenant not found in token.");
                 }
 
                 tenantId = parsedTenantId;
             }
 
             var roles = await _service.ListAsync(tenantId, scope, includeInactive && isSuperAdmin);
-            return BuildEnvelope(StatusCodes.Status200OK, roles, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, roles, "Request processed successfully.");
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             try
             {
                 var created = await _service.CreateBySuperAdminAsync(dto);
-                return BuildEnvelope(StatusCodes.Status201Created, created, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status201Created, created, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {
@@ -85,13 +85,13 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             var tidClaim = User.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
             if (!Guid.TryParse(tidClaim, out var tenantId))
             {
-                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Acces refuse: tenant introuvable dans le token.");
+                return BuildEnvelope(StatusCodes.Status403Forbidden, null, "Access denied: tenant not found in token.");
             }
 
             try
             {
                 var created = await _service.CreateByTenantAdminAsync(tenantId, dto);
-                return BuildEnvelope(StatusCodes.Status201Created, created, "Requete traitee avec succes.");
+                return BuildEnvelope(StatusCodes.Status201Created, created, "Request processed successfully.");
             }
             catch (InvalidOperationException ex)
             {

@@ -159,18 +159,18 @@ namespace Acme.Pki.Tenants.Identity.Services
         {
             return new List<RoleCatalog>
             {
-                DefaultRole("SuperAdmin", ScopeGlobal, "TenantRole.SuperAdmin", "Administration globale", "Gere l'ensemble de la plateforme, des tenants et de la securite."),
-                DefaultRole("TenantOwner", ScopeTenant, "TenantRole.TenantOwner", "Proprietaire de tenant", "Responsable principal d'un tenant et de sa gouvernance."),
-                DefaultRole("TenantAdmin", ScopeTenant, "TenantRole.TenantAdmin", "Administrateur tenant", "Administre les utilisateurs, roles et configurations du tenant."),
-                DefaultRole("SecurityAdmin", ScopeTenant, "TenantRole.SecurityAdmin", "Administrateur securite", "Supervise MFA, politiques de securite et incidents."),
-                DefaultRole("AppAdmin", ScopeTenant, "TenantRole.AppAdmin", "Administrateur applicatif", "Gere la configuration fonctionnelle des applications du tenant."),
-                DefaultRole("UserManager", ScopeTenant, "TenantRole.UserManager", "Gestionnaire utilisateurs", "Cree et maintient les comptes utilisateurs du tenant."),
-                DefaultRole("SupportAgent", ScopeTenant, "TenantRole.SupportAgent", "Support utilisateur", "Assiste les utilisateurs et traite les demandes de support."),
-                DefaultRole("EndUser", ScopeTenant, "TenantRole.EndUser", "Utilisateur final", "Utilise les fonctionnalites metier autorisees."),
-                DefaultRole("User", ScopeTenant, "TenantRole.User", "Utilisateur standard", "Role utilisateur standard avec acces limite."),
-                DefaultRole("Viewer", ScopeTenant, "TenantRole.Viewer", "Lecture seule", "Acces en consultation aux donnees du tenant."),
-                DefaultRole("ReadOnlyAdmin", ScopeTenant, "TenantRole.ReadOnlyAdmin", "Admin lecture seule", "Lecture complete des ressources sans modification."),
-                DefaultRole("ServiceAccount", ScopeTenant, "TenantRole.ServiceAccount", "Compte de service", "Compte technique utilise pour les integrations et automatisations.")
+                DefaultRole("SuperAdmin", ScopeGlobal, "TenantRole.SuperAdmin", "Global administration", "Manages the entire platform, tenants, and security."),
+                DefaultRole("TenantOwner", ScopeTenant, "TenantRole.TenantOwner", "Tenant owner", "Primary owner of a tenant and its governance."),
+                DefaultRole("TenantAdmin", ScopeTenant, "TenantRole.TenantAdmin", "Tenant administrator", "Manages tenant users, roles, and configuration."),
+                DefaultRole("SecurityAdmin", ScopeTenant, "TenantRole.SecurityAdmin", "Security administrator", "Oversees MFA, security policies, and incidents."),
+                DefaultRole("AppAdmin", ScopeTenant, "TenantRole.AppAdmin", "Application administrator", "Manages application functional configuration for the tenant."),
+                DefaultRole("UserManager", ScopeTenant, "TenantRole.UserManager", "User manager", "Creates and maintains tenant user accounts."),
+                DefaultRole("SupportAgent", ScopeTenant, "TenantRole.SupportAgent", "Support agent", "Assists users and handles support requests."),
+                DefaultRole("EndUser", ScopeTenant, "TenantRole.EndUser", "End user", "Uses authorized business features."),
+                DefaultRole("User", ScopeTenant, "TenantRole.User", "Standard user", "Standard user role with limited access."),
+                DefaultRole("Viewer", ScopeTenant, "TenantRole.Viewer", "Read-only", "Read-only access to tenant data."),
+                DefaultRole("ReadOnlyAdmin", ScopeTenant, "TenantRole.ReadOnlyAdmin", "Read-only administrator", "Full read-only access to resources."),
+                DefaultRole("ServiceAccount", ScopeTenant, "TenantRole.ServiceAccount", "Service account", "Technical account used for integrations and automation.")
             };
         }
 

@@ -39,6 +39,15 @@ Security best practices (auth):
  - Plan key rotation: publish new key with a new `kid`, keep previous public keys during token validation overlap.
  - Protect introspection endpoint; prefer short access tokens + refresh flow to reduce introspection frequency.
 
+Domain validation notes:
+ - DNS TXT validation uses `_acme-challenge.{domain}` and expects a TXT record that contains the generated token.
+ - HTTP validation expects `http://{domain}/.well-known/acme-challenge/{token}` to return the token in the response body.
+ - Validation tokens are purged after success and should never be exposed in public APIs after the domain is validated.
+ - The background validation worker runs at a configurable interval via `DomainValidation:IntervalMinutes`.
+ - Validate endpoints are rate-limited per domain via `DomainValidation:ValidateCooldownMinutes` and return `429` with `Retry-After`.
+ - Wildcard domains and CNAME-based setups need explicit operational guidance before enabling automated validation.
+ - For production issuance after validation, consider integrating a dedicated ACME client library instead of a custom flow.
+
 Vault (dev) - JWT signing key seeding (no secrets committed):
  - Expected path: `secret/data/tenants-identity/jwt` (KV v2)
  - Expected keys: `privateKeyPem`, `keyId` (optional), `publicJwks` (optional)

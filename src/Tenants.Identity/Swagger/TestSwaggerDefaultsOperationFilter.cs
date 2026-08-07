@@ -33,6 +33,17 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 return string.Equals(NormalizePath(relativePath), NormalizePath(expected), StringComparison.OrdinalIgnoreCase);
             }
 
+            if (string.IsNullOrWhiteSpace(operation.Summary))
+            {
+                var displayPath = NormalizePath(relativePath);
+                if (!displayPath.StartsWith("/", StringComparison.Ordinal))
+                {
+                    displayPath = "/" + displayPath;
+                }
+
+                operation.Summary = $"{method} {displayPath}";
+            }
+
             foreach (var parameter in operation.Parameters)
             {
                 var name = parameter.Name.ToLowerInvariant();
@@ -90,14 +101,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["accessToken"] = new OpenApiString("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."),
                         ["refreshToken"] = new OpenApiString("refresh-token-value")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(401),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Identifiants invalides.")
+                    ["message"] = new OpenApiString("Invalid credentials.")
                 }, "401");
             }
             else if (method == "POST" && IsPath("api/v1/auth/register"))
@@ -127,7 +138,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
             }
             else if (method == "POST" && (IsPath("api/v1/auth/refresh") || IsPath("api/v1/auth/revoke")))
@@ -144,7 +155,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["accessToken"] = new OpenApiString("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."),
                             ["refreshToken"] = new OpenApiString("new-refresh-token-value")
                         },
-                        ["message"] = new OpenApiString("Requete traitee avec succes.")
+                        ["message"] = new OpenApiString("Request processed successfully.")
                     }, "200");
                 }
                 else
@@ -153,7 +164,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                     {
                         ["statuscode"] = new OpenApiInteger(200),
                         ["data"] = new OpenApiNull(),
-                        ["message"] = new OpenApiString("Requete traitee avec succes.")
+                        ["message"] = new OpenApiString("Request processed successfully.")
                     }, "200");
                 }
             }
@@ -168,7 +179,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiObject { ["verified"] = new OpenApiBoolean(true) },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/mfa/{userid}/recovery/consume"))
@@ -182,7 +193,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiObject { ["consumed"] = new OpenApiBoolean(true) },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/mfa/{userid}/totp/begin"))
@@ -195,7 +206,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["manualEntryKey"] = new OpenApiString("JBSWY3DPEHPK3PXP"),
                         ["qrCodePngBase64"] = new OpenApiString("iVBORw0KGgoAAAANSUhEUgAA...")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/mfa/{userid}/recovery/generate"))
@@ -208,7 +219,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         new OpenApiString("9FAD30E1"),
                         new OpenApiString("A8C1D4F2")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/mfa/{userid}/totp/disable"))
@@ -217,7 +228,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "GET" && IsPath("api/v1/mfa/{userid}/status"))
@@ -226,7 +237,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiObject { ["mfaEnabled"] = new OpenApiBoolean(true) },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "GET" && IsPath("api/v1/resolve"))
@@ -235,14 +246,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiObject { ["tenantId"] = new OpenApiString(TestTenantId) },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Tenant introuvable.")
+                    ["message"] = new OpenApiString("Tenant not found.")
                 }, "404");
             }
             else if (method == "GET" && IsPath("api/v1/auth/me"))
@@ -263,7 +274,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["value"] = new OpenApiString("TenantAdmin")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/auth/introspect"))
@@ -286,8 +297,150 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["remainingValiditySeconds"] = new OpenApiInteger(593),
                         ["expiresAtUtc"] = new OpenApiString("2026-07-30T00:10:00Z")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
+            }
+            else if (method == "GET" && IsPath("api/v1/observability/metrics"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["correlationId"] = new OpenApiString("f14f0f59-8bf7-4da7-a699-cf907af654f4"),
+                        ["links"] = new OpenApiObject
+                        {
+                            ["self"] = new OpenApiString("https://localhost:5274/api/v1/observability/metrics"),
+                            ["rabbit"] = new OpenApiString("https://localhost:5274/api/v1/observability/rabbit"),
+                            ["audit"] = new OpenApiString("https://localhost:5274/api/v1/observability/audit")
+                        },
+                        ["metrics"] = new OpenApiObject
+                        {
+                            ["loginSuccessTotal"] = new OpenApiLong(124),
+                            ["loginFailureTotal"] = new OpenApiLong(9),
+                            ["loginAttemptTotal"] = new OpenApiLong(133),
+                            ["refreshFailureTotal"] = new OpenApiLong(3),
+                            ["mfaFailureTotal"] = new OpenApiLong(4),
+                            ["tokenReplayAttemptTotal"] = new OpenApiLong(1),
+                            ["keyRotationFailureTotal"] = new OpenApiLong(0),
+                            ["auditPublishFailureTotal"] = new OpenApiLong(0),
+                            ["crudActionTotal"] = new OpenApiLong(508),
+                            ["crudCreateTotal"] = new OpenApiLong(88),
+                            ["crudReadTotal"] = new OpenApiLong(361),
+                            ["crudUpdateTotal"] = new OpenApiLong(41),
+                            ["crudDeleteTotal"] = new OpenApiLong(18),
+                            ["crudActionsByKey"] = new OpenApiObject
+                            {
+                                ["read|/api/v1/users|success"] = new OpenApiLong(102),
+                                ["create|/api/v1/auth/login|success"] = new OpenApiLong(74),
+                                ["update|/api/v1/users/{id}|failure"] = new OpenApiLong(3)
+                            },
+                            ["loginFailuresByReason"] = new OpenApiObject
+                            {
+                                ["invalid_password"] = new OpenApiLong(6),
+                                ["user_not_found"] = new OpenApiLong(3)
+                            },
+                            ["refreshFailuresByReason"] = new OpenApiObject
+                            {
+                                ["refresh_token_expired"] = new OpenApiLong(2),
+                                ["refresh_token_replayed"] = new OpenApiLong(1)
+                            },
+                            ["mfaFailuresByReason"] = new OpenApiObject
+                            {
+                                ["invalid_mfa_code"] = new OpenApiLong(4)
+                            },
+                            ["keyRotationFailuresByReason"] = new OpenApiObject(),
+                            ["auditPublishFailuresByReason"] = new OpenApiObject()
+                        }
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(403),
+                    ["data"] = new OpenApiNull(),
+                    ["message"] = new OpenApiString("Access denied.")
+                }, "403");
+            }
+            else if (method == "GET" && IsPath("api/v1/observability/audit"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["correlationId"] = new OpenApiString("f14f0f59-8bf7-4da7-a699-cf907af654f4"),
+                        ["links"] = new OpenApiObject
+                        {
+                            ["self"] = new OpenApiString("https://localhost:5274/api/v1/observability/audit?path=/api/v1/auth&method=POST&outcome=success&dateFrom=2026-08-03T00:00:00Z&dateTo=2026-08-03T23:59:59Z&limit=20")
+                        },
+                        ["auditService"] = new OpenApiObject
+                        {
+                            ["totalPublishedEvents"] = new OpenApiLong(36),
+                            ["filteredEventsCount"] = new OpenApiInteger(1),
+                            ["lastPublishedAtUtc"] = new OpenApiString("2026-08-03T16:49:28Z"),
+                            ["recentEvents"] = new OpenApiArray
+                            {
+                                new OpenApiObject
+                                {
+                                    ["eventType"] = new OpenApiString("api_call"),
+                                    ["tenantId"] = new OpenApiNull(),
+                                    ["actorUserId"] = new OpenApiNull(),
+                                    ["occurredAtUtc"] = new OpenApiString("2026-08-03T16:49:28Z"),
+                                    ["data"] = new OpenApiObject
+                                    {
+                                        ["path"] = new OpenApiString("/api/v1/auth/login"),
+                                        ["method"] = new OpenApiString("POST"),
+                                        ["outcome"] = new OpenApiString("success")
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(403),
+                    ["data"] = new OpenApiNull(),
+                    ["message"] = new OpenApiString("Access denied.")
+                }, "403");
+            }
+            else if (method == "GET" && IsPath("api/v1/observability/rabbit"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["correlationId"] = new OpenApiString("f14f0f59-8bf7-4da7-a699-cf907af654f4"),
+                        ["links"] = new OpenApiObject
+                        {
+                            ["self"] = new OpenApiString("https://localhost:5274/api/v1/observability/rabbit")
+                        },
+                        ["rabbitService"] = new OpenApiObject
+                        {
+                            ["status"] = new OpenApiString("up"),
+                            ["host"] = new OpenApiString("localhost"),
+                            ["port"] = new OpenApiInteger(5672),
+                            ["virtualHost"] = new OpenApiString("/"),
+                            ["queue"] = new OpenApiString("audit.events"),
+                            ["exchange"] = new OpenApiString("audit.exchange"),
+                            ["tcpReachable"] = new OpenApiBoolean(true),
+                            ["auditPublishFailureTotal"] = new OpenApiLong(0)
+                        }
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(403),
+                    ["data"] = new OpenApiNull(),
+                    ["message"] = new OpenApiString("Access denied.")
+                }, "403");
             }
             else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/domains"))
             {
@@ -299,19 +452,68 @@ namespace Acme.Pki.Tenants.Identity.Swagger
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
-                    ["statuscode"] = new OpenApiInteger(202),
-                    ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
-                }, "202");
+                    ["statuscode"] = new OpenApiInteger(201),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["id"] = new OpenApiString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                        ["tenantId"] = new OpenApiString(TestTenantId),
+                        ["domain"] = new OpenApiString("demo.test.local"),
+                        ["isValidated"] = new OpenApiBoolean(false),
+                        ["validationMethod"] = new OpenApiString("dns-txt"),
+                        ["validationToken"] = new OpenApiString("txt-verification-value"),
+                        ["createdAt"] = new OpenApiString("2026-08-07T13:30:00Z"),
+                        ["updatedAt"] = new OpenApiNull()
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "201");
             }
-            else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/domains/validate"))
+            else if (method == "GET" && IsPath("api/v1/tenants/{tenantid}/domains/{domainid}"))
             {
-                SetJsonExample(operation, new OpenApiObject
+                SetJsonResponseExample(operation, new OpenApiObject
                 {
-                    ["domain"] = new OpenApiString("demo.test.local"),
-                    ["challengeResponse"] = new OpenApiString("txt-verification-value")
-                });
-
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["id"] = new OpenApiString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                        ["tenantId"] = new OpenApiString(TestTenantId),
+                        ["domain"] = new OpenApiString("demo.test.local"),
+                        ["isValidated"] = new OpenApiBoolean(false),
+                        ["validationMethod"] = new OpenApiString("dns-txt"),
+                        ["validationToken"] = new OpenApiString("txt-verification-value"),
+                        ["createdAt"] = new OpenApiString("2026-08-07T13:30:00Z"),
+                        ["updatedAt"] = new OpenApiNull()
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+            }
+            else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/domains/{domainid}/generate-dns"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["challenge"] = new OpenApiString("txt-verification-value"),
+                        ["record"] = new OpenApiString("_acme-challenge.demo.test.local TXT txt-verification-value")
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+            }
+            else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/domains/{domainid}/generate-http"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["challenge"] = new OpenApiString("txt-verification-value"),
+                        ["url"] = new OpenApiString("http://demo.test.local/.well-known/acme-challenge/txt-verification-value")
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
+            }
+            else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/domains/{domainid}/validate"))
+            {
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(200),
@@ -319,15 +521,47 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                     {
                         ["validated"] = new OpenApiBoolean(true)
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Domain validated.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(400),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Domain validation failed.")
+                    ["message"] = new OpenApiString("Validation failed or not ready.")
                 }, "400");
+
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(429),
+                    ["data"] = new OpenApiObject
+                    {
+                        ["retryAfterSeconds"] = new OpenApiInteger(900)
+                    },
+                    ["message"] = new OpenApiString("Validation temporarily rate limited.")
+                }, "429");
+            }
+            else if (method == "GET" && IsPath("api/v1/tenants/{tenantid}/domains"))
+            {
+                SetJsonResponseExample(operation, new OpenApiObject
+                {
+                    ["statuscode"] = new OpenApiInteger(200),
+                    ["data"] = new OpenApiArray
+                    {
+                        new OpenApiObject
+                        {
+                            ["id"] = new OpenApiString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                            ["tenantId"] = new OpenApiString(TestTenantId),
+                            ["domain"] = new OpenApiString("demo.test.local"),
+                            ["isValidated"] = new OpenApiBoolean(false),
+                            ["validationMethod"] = new OpenApiString("dns-txt"),
+                            ["validationToken"] = new OpenApiString("txt-verification-value"),
+                            ["createdAt"] = new OpenApiString("2026-08-07T13:30:00Z"),
+                            ["updatedAt"] = new OpenApiNull()
+                        }
+                    },
+                    ["message"] = new OpenApiString("Request processed successfully.")
+                }, "200");
             }
             else if (method == "POST" &&
                      (IsPath("api/v1/tenants/{tenantid}/suspend") ||
@@ -365,7 +599,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -379,7 +613,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: seul un SuperAdmin peut creer un autre SuperAdmin.")
+                    ["message"] = new OpenApiString("Access denied: only a SuperAdmin can create another SuperAdmin.")
                 }, "403");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -393,7 +627,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(500),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Erreur serveur: details de l'erreur")
+                    ["message"] = new OpenApiString("Server error: error details")
                 }, "500");
             }
             else if (method == "POST" && IsPath("api/v1/tenants"))
@@ -433,7 +667,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             new OpenApiString("demo.test.local")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -465,14 +699,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["metadata"] = new OpenApiString("{}")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: role SuperAdmin requis.")
+                    ["message"] = new OpenApiString("Access denied: SuperAdmin role required.")
                 }, "403");
             }
             else if (method == "GET" && IsPath("api/v1/superadmins/{id}"))
@@ -494,21 +728,21 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("SuperAdmin introuvable.")
+                    ["message"] = new OpenApiString("SuperAdmin not found.")
                 }, "404");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: role SuperAdmin requis.")
+                    ["message"] = new OpenApiString("Access denied: SuperAdmin role required.")
                 }, "403");
             }
             else if (method == "GET" && IsPath("api/v1/superadmins/tenants/{tenantid}/users"))
@@ -533,14 +767,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["metadata"] = new OpenApiString("{}")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: role SuperAdmin requis.")
+                    ["message"] = new OpenApiString("Access denied: SuperAdmin role required.")
                 }, "403");
             }
             else if (method == "PUT" && IsPath("api/v1/superadmins/{id}"))
@@ -569,7 +803,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -583,28 +817,28 @@ namespace Acme.Pki.Tenants.Identity.Swagger
             {
                 SetJsonExample(operation, new OpenApiObject
                 {
-                    ["reason"] = new OpenApiString("Gestion du compte superadmin en test")
+                    ["reason"] = new OpenApiString("SuperAdmin account management in test")
                 });
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/superadmins/{id}/reactivate"))
             {
                 SetJsonExample(operation, new OpenApiObject
                 {
-                    ["reason"] = new OpenApiString("Gestion du compte superadmin en test")
+                    ["reason"] = new OpenApiString("SuperAdmin account management in test")
                 });
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "PATCH" && IsPath("api/v1/superadmins/{id}/password"))
@@ -618,7 +852,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/superadmins/tenants/{tenantid}/users/tenant-admin"))
@@ -648,7 +882,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
             }
             else if (method == "PATCH" && IsPath("api/v1/superadmins/tenants/{tenantid}/users/{userid}/reset-default-password"))
@@ -662,7 +896,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["userId"] = new OpenApiString(TestUserId),
                         ["defaultPassword"] = new OpenApiString("TenantUser@123")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "GET" &&
@@ -690,14 +924,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             new OpenApiString("demo.test.local")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Tenant introuvable.")
+                    ["message"] = new OpenApiString("Tenant not found.")
                 }, "404");
             }
             else if (method == "GET" && IsPath("api/v1/tenants"))
@@ -726,7 +960,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             }
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "PUT" && IsPath("api/v1/tenants/{tenantid}"))
@@ -766,14 +1000,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             new OpenApiString("demo.test.local")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Tenant introuvable.")
+                    ["message"] = new OpenApiString("Tenant not found.")
                 }, "404");
             }
             else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/suspend"))
@@ -799,14 +1033,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             new OpenApiString("demo.test.local")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Tenant introuvable.")
+                    ["message"] = new OpenApiString("Tenant not found.")
                 }, "404");
             }
             else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/users"))
@@ -837,7 +1071,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
             }
             else if (method == "GET" && IsPath("api/v1/tenants/{tenantid}/users/{userid}"))
@@ -859,14 +1093,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(404),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Utilisateur introuvable.")
+                    ["message"] = new OpenApiString("User not found.")
                 }, "404");
             }
             else if (method == "PUT" && IsPath("api/v1/tenants/{tenantid}/users/{userid}"))
@@ -896,7 +1130,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -928,7 +1162,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["metadata"] = new OpenApiString("{}")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/users/{userid}/deactivate"))
@@ -937,7 +1171,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "POST" && IsPath("api/v1/tenants/{tenantid}/users/{userid}/reactivate"))
@@ -946,7 +1180,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "PATCH" && IsPath("api/v1/tenants/{tenantid}/users/{userid}/password"))
@@ -960,7 +1194,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                 {
                     ["statuscode"] = new OpenApiInteger(200),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "PATCH" && IsPath("api/v1/tenants/{tenantid}/users/{userid}/role"))
@@ -987,7 +1221,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["isActive"] = new OpenApiBoolean(true),
                         ["metadata"] = new OpenApiString("{}")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
             }
             else if (method == "GET" && IsPath("api/v1/roles"))
@@ -1005,7 +1239,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["roleMap"] = new OpenApiString("TenantAdmin"),
                             ["scope"] = new OpenApiString("global"),
                             ["definition"] = new OpenApiString("Administration du tenant"),
-                            ["description"] = new OpenApiString("Role systeme pour la gestion du tenant"),
+                            ["description"] = new OpenApiString("System role for tenant management"),
                             ["attributes"] = new OpenApiString("{}"),
                             ["isDefault"] = new OpenApiBoolean(true),
                             ["isSystem"] = new OpenApiBoolean(true),
@@ -1014,14 +1248,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                             ["updatedAtUtc"] = new OpenApiString("2026-07-30T00:00:00Z")
                         }
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "200");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: tenant introuvable dans le token.")
+                    ["message"] = new OpenApiString("Access denied: tenant not found in token.")
                 }, "403");
             }
             else if (method == "POST" && IsPath("api/v1/roles"))
@@ -1032,7 +1266,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                     ["name"] = new OpenApiString("CustomAuditor"),
                     ["roleMap"] = new OpenApiString("Auditor"),
                     ["scope"] = new OpenApiString("global"),
-                    ["definition"] = new OpenApiString("Audit en lecture seule"),
+                    ["definition"] = new OpenApiString("Read-only audit"),
                     ["description"] = new OpenApiString("Role global personnalise"),
                     ["attributes"] = new OpenApiString("{}")
                 });
@@ -1047,7 +1281,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["name"] = new OpenApiString("CustomAuditor"),
                         ["roleMap"] = new OpenApiString("Auditor"),
                         ["scope"] = new OpenApiString("global"),
-                        ["definition"] = new OpenApiString("Audit en lecture seule"),
+                        ["definition"] = new OpenApiString("Read-only audit"),
                         ["description"] = new OpenApiString("Role global personnalise"),
                         ["attributes"] = new OpenApiString("{}"),
                         ["isDefault"] = new OpenApiBoolean(false),
@@ -1056,7 +1290,7 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["createdAtUtc"] = new OpenApiString("2026-07-30T00:00:00Z"),
                         ["updatedAtUtc"] = new OpenApiString("2026-07-30T00:00:00Z")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
 
                 SetJsonResponseExample(operation, new OpenApiObject
@@ -1097,14 +1331,14 @@ namespace Acme.Pki.Tenants.Identity.Swagger
                         ["createdAtUtc"] = new OpenApiString("2026-07-30T00:00:00Z"),
                         ["updatedAtUtc"] = new OpenApiString("2026-07-30T00:00:00Z")
                     },
-                    ["message"] = new OpenApiString("Requete traitee avec succes.")
+                    ["message"] = new OpenApiString("Request processed successfully.")
                 }, "201");
 
                 SetJsonResponseExample(operation, new OpenApiObject
                 {
                     ["statuscode"] = new OpenApiInteger(403),
                     ["data"] = new OpenApiNull(),
-                    ["message"] = new OpenApiString("Acces refuse: tenant introuvable dans le token.")
+                    ["message"] = new OpenApiString("Access denied: tenant not found in token.")
                 }, "403");
             }
 

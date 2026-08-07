@@ -12,17 +12,21 @@ namespace Acme.Pki.Tenants.Identity.Security
         private readonly RequestDelegate _next;
         private readonly ILogger<AuditMiddleware> _logger;
         private readonly IAuditService _audit;
+        private readonly IIdentityTelemetry _telemetry;
 
-        public AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logger, IAuditService audit)
+        public AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logger, IAuditService audit, IIdentityTelemetry telemetry)
         {
             _next = next;
             _logger = logger;
             _audit = audit;
+            _telemetry = telemetry;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
+            var crudAction = MapCrudAction(context.Request.Method);
+            var isApiRequest = path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase);
             var sensitive = path.StartsWith("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
                 || path.Contains("/mfa", StringComparison.OrdinalIgnoreCase)
                 || path.Contains("/keys", StringComparison.OrdinalIgnoreCase)
@@ -31,7 +35,28 @@ namespace Acme.Pki.Tenants.Identity.Security
 
             if (!sensitive)
             {
-                await _next(context);
+                var crudOutcome = "success";
+                try
+                {
+                    await _next(context);
+                    if (context.Response.StatusCode >= 400)
+                    {
+                        crudOutcome = "failure";
+                    }
+                }
+                catch
+                {
+                    crudOutcome = "error";
+                    throw;
+                }
+                finally
+                {
+                    if (isApiRequest && !string.IsNullOrWhiteSpace(crudAction))
+                    {
+                        _telemetry.RecordCrudAction(crudAction!, path, crudOutcome);
+                    }
+                }
+
                 return;
             }
 
@@ -41,7 +66,8 @@ namespace Acme.Pki.Tenants.Identity.Security
             {
                 ["path"] = path,
                 ["method"] = context.Request.Method,
-                ["ip"] = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty
+                ["ip"] = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+                ["correlationId"] = context.Items["CorrelationId"]?.ToString() ?? context.TraceIdentifier
             };
 
             try
@@ -58,12 +84,38 @@ namespace Acme.Pki.Tenants.Identity.Security
             }
             finally
             {
-                _ = _audit.PublishAsync(
-                    eventType: "api_call",
-                    tenantId: Guid.TryParse(tenantId, out var tid) ? tid : null,
-                    actorUserId: Guid.TryParse(userId, out var uid) ? uid : null,
-                    data: data);
+                if (isApiRequest && !string.IsNullOrWhiteSpace(crudAction))
+                {
+                    _telemetry.RecordCrudAction(crudAction!, path, data["outcome"]);
+                }
+
+                try
+                {
+                    await _audit.PublishAsync(
+                        eventType: "api_call",
+                        tenantId: Guid.TryParse(tenantId, out var tid) ? tid : null,
+                        actorUserId: Guid.TryParse(userId, out var uid) ? uid : null,
+                        data: data);
+                }
+                catch (Exception ex)
+                {
+                    _telemetry.RecordAuditPublishFailure("audit_publish_exception");
+                    _logger.LogError(ex, "audit.publish.failed reason={Reason}", "audit_publish_exception");
+                }
             }
+        }
+
+        private static string? MapCrudAction(string method)
+        {
+            return method.ToUpperInvariant() switch
+            {
+                "POST" => "create",
+                "GET" => "read",
+                "PUT" => "update",
+                "PATCH" => "update",
+                "DELETE" => "delete",
+                _ => null
+            };
         }
     }
 }

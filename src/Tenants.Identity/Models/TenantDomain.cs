@@ -6,9 +6,11 @@ namespace Acme.Pki.Tenants.Identity.Models
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid TenantId { get; set; }
-        public string Domain { get; set; }
+        public string Domain { get; set; } = string.Empty;
         public bool IsValidated { get; set; } = false;
-        public string ValidationMethod { get; set; }
+        public string ValidationMethod { get; set; } = string.Empty;
+        public string ValidationToken { get; set; } = string.Empty; // challenge token
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
     }
 }

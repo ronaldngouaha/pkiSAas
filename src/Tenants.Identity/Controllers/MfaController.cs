@@ -40,7 +40,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
             {
                 manualEntryKey = setup.ManualEntryKey,
                 qrCodePngBase64 = Convert.ToBase64String(setup.QrCodePng)
-            }, "Requete traitee avec succes.");
+            }, "Request processed successfully.");
         }
 
         /// <summary>
@@ -60,7 +60,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 return BuildEnvelope(StatusCodes.Status400BadRequest, null, "Invalid code");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, new { verified = true }, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, new { verified = true }, "Request processed successfully.");
         }
 
         /// <summary>
@@ -74,7 +74,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> GenerateRecovery(Guid userId)
         {
             var codes = await _mfa.GenerateRecoveryCodesAsync(userId);
-            return BuildEnvelope(StatusCodes.Status200OK, codes, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, codes, "Request processed successfully.");
         }
 
         /// <summary>
@@ -94,7 +94,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
                 return BuildEnvelope(StatusCodes.Status400BadRequest, null, "Invalid recovery code");
             }
 
-            return BuildEnvelope(StatusCodes.Status200OK, new { consumed = true }, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, new { consumed = true }, "Request processed successfully.");
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> DisableTotp(Guid userId)
         {
             await _mfa.DisableTotpAsync(userId);
-            return BuildEnvelope(StatusCodes.Status200OK, null, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, null, "Request processed successfully.");
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace Acme.Pki.Tenants.Identity.Controllers
         public async Task<IActionResult> Status(Guid userId)
         {
             var enabled = await _mfa.IsMfaEnabledAsync(userId);
-            return BuildEnvelope(StatusCodes.Status200OK, new { mfaEnabled = enabled }, "Requete traitee avec succes.");
+            return BuildEnvelope(StatusCodes.Status200OK, new { mfaEnabled = enabled }, "Request processed successfully.");
         }
 
         private ObjectResult BuildEnvelope(int statusCode, object? data, string message)
